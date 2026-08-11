@@ -86,6 +86,14 @@ no editar a mano). Progreso en localStorage por perfil.
   Home obedece al plan (`tareaDeHoy`). Recordatorios `.ics` con VALARM (`icsDelPlan`). Correo
   directo = fase 2 (Worker+Resend), no simulado.
 
+## Correcciones v1.2.1 (11-ago, no rehacer)
+- **RB-011**: tarjetas de la trivia en paleta GAMONAL (navy/azul blanco · turquesa/amarillo navy),
+  nunca los colores Kahoot de la referencia (rojo/verde confunden con incorrecto/correcto).
+- **RB-012**: `.ico` con regla base 20px + width/height intrínsecos; señalSVG viewBox −8..116
+  (rombos sin cortar) y tamaño por CSS. Lección: REVISAR toda captura generada antes de entregar.
+- Pendiente MAYOR en curso: ampliar el catálogo de señales (usuario: el anexo oficial trae ~146;
+  hay 56). Verificar el número real contra el libro y producir las faltantes en SVG propio.
+
 ## Estado
 v1.2 (11-ago-2026): seguridad de sitio + trivia + fichas claras/avance + plan con .ics,
 verificado **35/35 PASS**. v1.1: rebrand + RB-006. Pendientes: elección del usuario entre las

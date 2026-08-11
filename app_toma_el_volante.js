@@ -59,7 +59,10 @@ var ICONOS = {
   marcar:'<path d="M6 3h12v18l-6-4.5L6 21z"/>',
   estrella:'<path d="m12 3 2.7 5.8 6.3.8-4.6 4.3 1.2 6.1L12 17l-5.6 3 1.2-6.1L3 9.6l6.3-.8z"/>'
 };
-function ico(n, cls){ return '<svg class="ico'+(cls? " "+cls:"")+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONOS[n]||"")+'</svg>'; }
+/* width/height intrínsecos: si un contexto no define tamaño (o el CSS no cargó),
+   el ícono jamás vuelve a renderizar gigante (corrección del usuario: filas del
+   intro de simulacro/trivia con íconos de 400px). El CSS contextual los pisa. */
+function ico(n, cls){ return '<svg class="ico'+(cls? " "+cls:"")+'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONOS[n]||"")+'</svg>'; }
 
 /* ---------- sonido (WebAudio, sutil, configurable) ---------- */
 var audioCtx = null;
@@ -1028,7 +1031,10 @@ function senalSVG(s, px){
   } else {
     dib = '<rect x="4" y="14" width="92" height="72" rx="7" fill="#1C73CB"/>'+pictoSVG(pict,"#FFFFFF");
   }
-  return '<svg viewBox="0 0 100 100" style="width:'+px+'px;height:'+px+'px" role="img" aria-label="'+esc(s.nombre)+'">'+dib+'</svg>';
+  /* viewBox con margen: el rombo preventivo rotado mide ~110 de diagonal y con
+     el lienzo 0-100 salía CORTADO (corrección del usuario). El tamaño lo pone
+     el contenedor por CSS (px queda como respaldo si no hay regla). */
+  return '<svg viewBox="-8 -8 116 116" style="max-width:100%;width:'+px+'px;height:auto" class="senal-svg" role="img" aria-label="'+esc(s.nombre)+'">'+dib+'</svg>';
 }
 function pictoSVG(p, color){
   var st = 'stroke="'+color+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"';
@@ -1128,11 +1134,15 @@ function vSenales(){
    azul #1C73CB, advertencia #E8BA30 (contenido navy por contraste AA) y éxito
    fuerte #0D7332. Sin premio por velocidad (RB-004): piensa lo que necesites. */
 var TR = null;
+/* Tarjetas en la PALETA GAMONAL (corrección del usuario: la referencia Kahoot
+   era estructural, no de color; y rojo/verde en alternativas confunden con
+   incorrecto/correcto). Navy y azul con contenido blanco; turquesa y amarillo
+   con contenido navy (contraste AA). Las formas ▲◆●■ se mantienen. */
 var TK_CARTAS = [
-  { color:"tk-rojo", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2z" fill="currentColor"/></svg>' },
+  { color:"tk-navy", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2z" fill="currentColor"/></svg>' },
   { color:"tk-azul", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 10-9 10L3 12z" fill="currentColor"/></svg>' },
-  { color:"tk-amarillo", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
-  { color:"tk-verde", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
+  { color:"tk-turq", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
+  { color:"tk-ama", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
 ];
 function armarRondaTrivia(n){
   var senales = DATA.senales||[];
@@ -1476,7 +1486,8 @@ window.RUTAB = {
   seleccionSimulacro: seleccionSimulacro,
   dominioGlobal: dominioGlobal,
   vencidasHoy: vencidasHoy,
-  triviaEstado: function(){ return TR; }
+  triviaEstado: function(){ return TR; },
+  senalSVG: senalSVG
 };
 
 })();
