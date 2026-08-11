@@ -994,144 +994,34 @@ function pintarResultadoSim(sim, qsSim){
 
 /* ---------- vista: señales ---------- */
 var senFiltro = "todas";
-/* Dibujo por señal: reproducción esquemática fiel del anexo oficial (forma+color+pictograma). */
-var SEN_PICTO = {
-  "pare-ninos":"txtPareNinos","no-entrar":"txtNoEntrar","no-adelantar":"autos2","no-virar-izquierda":"virIzq",
-  "no-virar-derecha":"virDer","no-virar-en-u":"flechaU","no-cambiar-de-pista":"cambioPista",
-  "prohibido-estacionar":"noestac","prohibido-estacionar-y-detenerse":"noestac2","velocidad-maxima":"maxima",
-  "velocidad-minima":"minima","velocidad-maxima-zona-30":"num30","luces-encendidas":"luz",
-  "uso-obligatorio-de-cadenas":"cadenas","solo-transporte-publico":"txtSoloBuses","transito-en-un-solo-sentido":"flechaH",
-  "transito-en-ambos-sentidos":"flechasOp","mantenga-su-derecha":"diagDer","direccion-obligada":"flechaArriba",
-  "paso-obligado-derecha":"diagDer","permitido-virar-derecha-con-luz-roja":"txtVireRojo",
-  "curva-a-la-derecha":"curva","curva-cerrada-a-la-derecha":"curvaCerrada","zona-de-curvas":"curvas",
-  "pendiente-fuerte-en-bajada":"pendiente","puente-angosto":"angosto","proximidad-de-tunel":"tunel",
-  "cruce-ferroviario-sin-barreras":"tren","cruce-ferroviario-con-barreras":"trenBarrera","cruz-de-san-andres":"aspaX",
-  "proximidad-rotonda":"rotonda","zona-de-escuela":"ninos","ninos-jugando":"ninos","proximidad-de-senal-pare":"miniPare",
-  "proximidad-de-semaforo":"semaforo","pavimento-resbaladizo":"resbala","zona-de-derrumbes":"piedras",
-  "resalto":"resalto","baden":"baden","viento-lateral":"viento","trabajos-en-la-via":"obras",
-  "inicio-de-autopista":"autopista","fin-de-autopista":"autopistaFin","telefono-de-emergencia":"telefono",
-  "salida-inmediata":"salidaDiag","balizas-de-acercamiento":"chevrones","estacionamiento-permitido":"estE",
-  "aeropuerto":"avion","primeros-auxilios-hospital":"hospital","acantilado":"acantilado",
-  "control-fotografico":"camara","zona-30":"txtZona30","fin-zona-30":"txtFinZona30","retorno-en-autopista":"flechaU"
-};
-var SEN_TACHADO = { "no-virar-izquierda":1,"no-virar-derecha":1,"no-virar-en-u":1,"no-cambiar-de-pista":1,"prohibido-estacionar":1 };
-function senalSVG(s, px, ocultarTexto){
-  px = px||96;
-  var f = s.familia, dib = "";
-  var pict = SEN_PICTO[s.id]||s.picto||"";
-  if(s.id==="pare") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#C8102E" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="22" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
-  else if(s.id==="pare-ninos") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#C8102E" stroke="#fff" stroke-width="4"/><text x="50" y="50" font-size="17" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text><text x="50" y="70" font-size="14" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">NIÑOS</text>';
-  else if(s.id==="ceda-el-paso") dib = '<path d="M6 14h88L50 92z" fill="#fff" stroke="#C8102E" stroke-width="10"/>';
-  else if(s.id==="cruz-de-san-andres") dib = '<g transform="rotate(0 50 50)"><path d="M14 30 86 70M14 70 86 30" stroke="#C8102E" stroke-width="18" stroke-linecap="round"/><path d="M14 30 86 70M14 70 86 30" stroke="#fff" stroke-width="10" stroke-linecap="round"/></g>';
-  else if(f==="reglamentaria"){
-    if(s.forma==="rectángulo") dib = '<rect x="8" y="16" width="84" height="68" rx="6" fill="#fff" stroke="#000000" stroke-width="3"/>'+pictoSVG(pict,"#000000");
-    else dib = '<circle cx="50" cy="50" r="44" fill="#fff" stroke="#C8102E" stroke-width="9"/>'+pictoSVG(pict,"#000000")+(SEN_TACHADO[s.id]? '<path d="M22 78 78 22" stroke="#C8102E" stroke-width="7" stroke-linecap="round"/>':"");
-  } else if(f==="preventiva"){
-    dib = '<rect x="11" y="11" width="78" height="78" rx="9" transform="rotate(45 50 50)" fill="#FFCD00" stroke="#000000" stroke-width="4"/>'+pictoSVG(pict,"#000000");
-  } else {
-    dib = '<rect x="4" y="14" width="92" height="72" rx="7" fill="#0057B7"/>'+pictoSVG(pict,"#FFFFFF");
-  }
-  /* viewBox con margen: el rombo preventivo rotado mide ~110 de diagonal y con
-     el lienzo 0-100 salía CORTADO (corrección del usuario). El tamaño lo pone
-     el contenedor por CSS (px queda como respaldo si no hay regla). */
-  if(ocultarTexto){
-    /* La trivia oculta las PALABRAS de la señal (para no regalar la respuesta)
-       con barras neutras; las letras-símbolo (E) y cifras cortas se conservan.
-       Orden del usuario: el símbolo jamás se altera, solo se cubre su texto. */
-    dib = dib.replace(/<text([^>]*)>([^<]{3,})<\/text>/g, function(m, attrs, txt){
-      var mx = /x="([\d.]+)"/.exec(attrs), my = /y="([\d.]+)"/.exec(attrs);
-      var x = mx? +mx[1] : 50, y = my? +my[1] : 50;
-      var w = Math.min(56, txt.length * 9);
-      return '<rect x="'+(x - w/2)+'" y="'+(y - 12)+'" width="'+w+'" height="12" rx="4" fill="#9AA4B5" opacity=".85"/>';
-    });
-  }
-  return '<svg viewBox="-8 -8 116 116" style="max-width:100%;width:'+px+'px;height:auto" class="senal-svg" role="img" aria-label="'+esc(s.nombre)+'">'+dib+'</svg>';
-}
-function pictoSVG(p, color){
-  var st = 'stroke="'+color+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"';
-  var fl = 'fill="'+color+'"';
-  switch(p){
-    case "texto": return "";
-    case "num50": return '<text x="50" y="63" font-size="34" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">50</text>';
-    case "num60": return '<text x="50" y="63" font-size="34" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">60</text>';
-    case "num120": return '<text x="50" y="61" font-size="28" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">120</text>';
-    case "flechaIzq": return '<path d="M70 50H32" '+st+'/><path d="m44 36-14 14 14 14" '+st+'/>';
-    case "flechaDer": return '<path d="M30 50h38" '+st+'/><path d="m56 36 14 14-14 14" '+st+'/>';
-    case "flechaU": return '<path d="M36 68V44a14 14 0 0 1 28 0v6" '+st+'/><path d="m56 46 8 8 8-8" '+st+'/>';
-    case "flechaArriba": return '<path d="M50 72V32" '+st+'/><path d="M36 44l14-14 14 14" '+st+'/>';
-    case "curva": return '<path d="M38 74c0-16 24-18 24-34" '+st+'/><path d="m54 34 8 8 4-12z" '+fl+'/>';
-    case "curvas": return '<path d="M40 76c0-10 20-12 20-24s-20-14-20-26" '+st+'/>';
-    case "peaton": return '<circle cx="50" cy="30" r="7" '+fl+'/><path d="M50 38v16l-8 18M50 54l8 18M50 42l-12 6M50 42l12 6" '+st+'/>';
-    case "ninos": return '<circle cx="42" cy="30" r="6" '+fl+'/><circle cx="60" cy="34" r="5" '+fl+'/><path d="M42 37v14l-6 16M42 51l6 16M60 40v12l-5 14M60 52l5 14" '+st+'/>';
-    case "bici": return '<circle cx="32" cy="62" r="12" '+st+'/><circle cx="68" cy="62" r="12" '+st+'/><path d="M32 62 44 40h14l10 22M44 40l8 22" '+st+'/>';
-    case "tren": return '<path d="M20 78 80 78" '+st+'/><rect x="34" y="30" width="32" height="34" rx="4" '+st+'/><circle cx="42" cy="72" r="4" '+fl+'/><circle cx="58" cy="72" r="4" '+fl+'/>';
-    case "cruzferro": return '<path d="M18 34 82 66M18 66 82 34" '+st+'/>';
-    case "semaforo": return '<rect x="38" y="22" width="24" height="56" rx="6" '+st+'/><circle cx="50" cy="34" r="5" '+fl+'/><circle cx="50" cy="50" r="5" '+fl+'/><circle cx="50" cy="66" r="5" '+fl+'/>';
-    case "auto": return '<path d="M24 62v-8l8-14h36l8 14v8" '+st+'/><path d="M24 62h52" '+st+'/><circle cx="36" cy="66" r="5" '+fl+'/><circle cx="64" cy="66" r="5" '+fl+'/>';
-    case "autos2": return '<path d="M14 64v-6l6-10h24l6 10v6zM50 46v-6l6-10h24l6 10v6z" '+st+'/>';
-    case "noestac": return '<text x="50" y="66" font-size="42" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">E</text>';
-    case "bocina": return '<path d="M30 42h14l16-12v40L44 58H30z" '+st+'/><path d="M66 42c4 4 4 12 0 16" '+st+'/>';
-    case "obras": return '<circle cx="50" cy="28" r="6" '+fl+'/><path d="M50 36v14l-10 22M50 50l10 22M40 44h20" '+st+'/><path d="M28 76h44" '+st+'/>';
-    case "resalto": return '<path d="M22 66c8-14 18-14 28 0s20 14 28 0" '+st+'/>';
-    case "angosto": return '<path d="M34 76V52L26 24M66 76V52l8-28" '+st+'/>';
-    case "pendiente": return '<path d="M22 72 78 40v32z" '+st+'/><text x="44" y="66" font-size="14" font-weight="700" fill="'+color+'" font-family="Roboto,Arial">10%</text>';
-    case "resbala": return '<path d="M40 74c-4-8 4-10 0-18s4-10 0-18M60 74c-4-8 4-10 0-18s4-10 0-18" '+st+'/>';
-    case "hospital": return '<path d="M50 32v36M32 50h36" stroke="'+color+'" stroke-width="10" stroke-linecap="round"/>';
-    case "info": return '<text x="50" y="66" font-size="44" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">i</text>';
-    case "gas": return '<rect x="30" y="28" width="26" height="44" rx="4" '+st+'/><path d="M56 44h8l6 8v16a5 5 0 0 1-10 0V52" '+st+'/>';
-    case "virIzq": return '<path d="M62 70V50a14 14 0 0 0-14-14H38" '+st+'/><path d="m44 26-12 10 12 10" '+st+'/>';
-    case "virDer": return '<path d="M38 70V50a14 14 0 0 1 14-14h10" '+st+'/><path d="m56 26 12 10-12 10" '+st+'/>';
-    case "cambioPista": return '<path d="M40 76V58c0-10 20-12 20-22v-8" '+st+'/><path d="m52 34 8-10 8 10" '+st+'/><path d="M32 26v10M32 48v10M32 70v6" '+st+' stroke-dasharray="none"/>';
-    case "noestac2": return '<text x="50" y="64" font-size="38" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">E</text><path d="M26 74 74 26M26 26l48 48" stroke="#C8102E" stroke-width="6" stroke-linecap="round"/>';
-    case "maxima": return '<text x="50" y="42" font-size="13" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">MÁXIMA</text><text x="50" y="72" font-size="30" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">50</text>';
-    case "minima": return '<text x="50" y="42" font-size="13" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">MÍNIMA</text><text x="50" y="72" font-size="30" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">40</text>';
-    case "num30": return '<text x="50" y="63" font-size="34" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">30</text>';
-    case "luz": return '<circle cx="50" cy="44" r="13" '+st+'/><path d="M50 22v-6M28 44h-6M78 44h-6M34 28l-4-4M66 28l4-4M44 62h12M45 70h10" '+st+'/>';
-    case "cadenas": return '<ellipse cx="36" cy="50" rx="9" ry="13" '+st+'/><ellipse cx="52" cy="50" rx="9" ry="13" '+st+'/><ellipse cx="68" cy="50" rx="9" ry="13" '+st+'/>';
-    case "txtSoloBuses": return '<text x="50" y="45" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">SOLO</text><text x="50" y="66" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">BUSES</text>';
-    case "flechaH": return '<path d="M24 50h44" '+st+'/><path d="m58 38 14 12-14 12" '+st+'/>';
-    case "flechasOp": return '<path d="M38 68V34M62 32v34" '+st+'/><path d="m30 44 8-12 8 12M54 56l8 12 8-12" '+st+'/>';
-    case "diagDer": return '<path d="M36 34 62 62" '+st+'/><path d="M62 44v18H44" '+st+'/>';
-    case "curvaCerrada": return '<path d="M38 74V50h24" '+st+'/><path d="m54 40 12 10-12 10" '+st+'/>';
-    case "tunel": return '<path d="M26 76V52a24 24 0 0 1 48 0v24" '+st+'/><path d="M20 76h60" '+st+'/>';
-    case "trenBarrera": return '<path d="M24 40 76 40" '+st+'/><path d="M28 40v26M72 40v26M24 72h52" '+st+'/><circle cx="30" cy="34" r="4" '+fl+'/><circle cx="50" cy="34" r="4" '+fl+'/><circle cx="70" cy="34" r="4" '+fl+'/>';
-    case "rotonda": return '<circle cx="50" cy="52" r="14" '+st+'/><path d="M50 24v10M30 66l-6 8M76 74l-6-8" '+st+'/><path d="m44 28 6-8 6 8" '+fl+'/>';
-    case "miniPare": return '<path d="M40 28h20l13 13v20L60 74H40L27 61V41z" fill="#C8102E"/><text x="50" y="56" font-size="12" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
-    case "piedras": return '<circle cx="42" cy="62" r="8" '+fl+'/><circle cx="58" cy="66" r="6" '+fl+'/><circle cx="52" cy="46" r="5" '+fl+'/><path d="M62 30 50 42M68 40l-12 8" '+st+'/>';
-    case "baden": return '<path d="M22 46c8 14 18 14 28 0s20-14 28 0" '+st+'/>';
-    case "viento": return '<path d="M36 30v44" '+st+'/><path d="M36 32c14-6 22 8 34 2v18c-12 6-20-8-34-2" '+fl+'/>';
-    case "autopista": return '<path d="M34 72V46c0-8 6-10 6-16v-4M66 72V46c0-8-6-10-6-16v-4" '+st+'/><path d="M24 40h52" '+st+'/>';
-    case "autopistaFin": return '<path d="M34 72V46c0-8 6-10 6-16v-4M66 72V46c0-8-6-10-6-16v-4" '+st+'/><path d="M24 40h52" '+st+'/><path d="M26 74 74 26" stroke="#C8102E" stroke-width="7" stroke-linecap="round"/>';
-    case "telefono": return '<path d="M32 34c0-6 36-6 36 0l-4 12c-6-3-22-3-28 0z" '+fl+'/><rect x="42" y="52" width="16" height="22" rx="3" '+st+'/>';
-    case "salidaDiag": return '<path d="M32 70 62 40" '+st+'/><path d="M62 58V40H44" '+st+'/>';
-    case "chevrones": return '<path d="M30 34 46 50 30 66M54 34 70 50 54 66" '+st+'/>';
-    case "estE": return '<text x="50" y="65" font-size="42" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">E</text>';
-    case "avion": return '<path d="M50 26v22M50 48 26 60v6l24-6 24 6v-6zM44 74h12l-6-8z" '+fl+'/>';
-    case "acantilado": return '<path d="M24 70h28V40" '+st+'/><path d="M60 46l14 8M60 56l10 10" '+st+'/><circle cx="66" cy="38" r="5" '+fl+'/>';
-    case "camara": return '<rect x="26" y="40" width="48" height="32" rx="5" '+st+'/><circle cx="50" cy="56" r="9" '+st+'/><path d="M40 40l4-8h12l4 8" '+st+'/>';
-    case "txtZona30": return '<text x="50" y="45" font-size="16" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ZONA</text><text x="50" y="70" font-size="22" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">30</text>';
-    case "txtFinZona30": return '<text x="50" y="45" font-size="16" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">FIN</text><text x="50" y="70" font-size="20" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ZONA 30</text>';
-    case "txtNoEntrar": return '<text x="50" y="46" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">NO</text><text x="50" y="66" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ENTRAR</text>';
-    case "txtVireRojo": return '<text x="50" y="40" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">PERMITE VIRAR</text><text x="50" y="56" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">DERECHA CON</text><text x="50" y="72" font-size="11" font-weight="700" fill="#C8102E" text-anchor="middle" font-family="Roboto,Arial">LUZ ROJA</text>';
-    default: return '<circle cx="50" cy="50" r="16" '+st+'/>';
-  }
+/* Arte OFICIAL del anexo del libro CONASET (páginas 150-160), extraído del PDF
+   de la edición 27-feb-2026 y reproducido SIN alteración (RB-013: la señalética
+   es información normativa, jamás pieza de marca; símbolo y nombre intactos).
+   Cada señal vive en senales/<id>.png — ruta relativa: funciona igual en
+   producción y abierto con doble clic. Variantes reales del libro (espejos
+   izquierda/derecha, versión auto/camión, los 9 cruces) comparten nombre y se
+   distinguen por id (-2, -3…). */
+function senalImg(s, px){
+  px = px || 96;
+  return '<img class="senal-img" src="senales/'+s.id+'.png" alt="Señal: '+esc(s.nombre)+'" loading="lazy" style="max-width:'+px+'px;max-height:'+px+'px">';
 }
 function vSenales(){
   var senales = DATA.senales||[];
-  var fam = [["todas","Todas"],["reglamentaria","Reglamentarias"],["preventiva","Preventivas"],["informativa","Informativas"]];
-  var filtros = fam.map(function(f){ return '<button class="filtro'+(senFiltro===f[0]?" activa":"")+'" data-fam="'+f[0]+'">'+f[1]+'</button>'; }).join("");
+  var nFam = function(f){ return f==="todas"? senales.length : senales.filter(function(s){ return s.familia===f; }).length; };
+  var fam = [["todas","Todas"],["reglamentaria","Reglamentarias"],["preventiva","Preventivas"],["informativa","Informativas"],["transitoria","Transitorias"]];
+  var filtros = fam.map(function(f){ return '<button class="filtro'+(senFiltro===f[0]?" activa":"")+'" data-fam="'+f[0]+'">'+f[1]+' · '+nFam(f[0])+'</button>'; }).join("");
   var lista = senales.filter(function(s){ return senFiltro==="todas" || s.familia===senFiltro; });
   var cards = lista.map(function(s){
-    return '<div class="sen-card">'+senalSVG(s)+'<b>'+esc(s.nombre)+'</b><span>'+esc(s.descripcion)+'</span></div>';
+    return '<div class="sen-card"><div class="sen-art">'+senalImg(s)+'</div><b>'+esc(s.nombre)+'</b>'+(s.descripcion? '<span>'+esc(s.descripcion)+'</span>' : "")+'</div>';
   }).join("");
   shell(
-    '<div class="sec-head"><div><span class="eyebrow">Anexo 1 del libro oficial · página 149</span>'+
+    '<div class="sec-head"><div><span class="eyebrow">Anexo del libro oficial · páginas 150–160</span>'+
     '<h1 style="font-size:24px;margin-top:4px">Señales de tránsito</h1>'+
-    '<p class="sub">Reglamentarias: obligan o prohíben. Preventivas: advierten un peligro. Informativas: orientan y guían.</p></div>'+
+    '<p class="sub">Reglamentarias: obligan o prohíben. Preventivas: advierten un peligro. Informativas: orientan y guían. Transitorias: trabajos en la vía.</p></div>'+
     '<button class="btn btn-pri" id="sen-quiz">'+ico("trivia")+'Jugar la trivia</button></div>'+
     '<div class="filtros">'+filtros+'</div>'+
     '<div class="sen-grid">'+cards+'</div>'+
-    '<p class="sub" style="margin-top:14px;font-size:12.5px">Representaciones esquemáticas propias, fieles a la señalización oficial descrita en el anexo del Libro para la Conducción en Chile.</p>'
+    '<p class="sub" style="margin-top:14px;font-size:12.5px">Arte oficial del anexo del Libro para la Conducción en Chile (edición 27-feb-2026), reproducido sin modificación.</p>'
   );
   document.querySelectorAll("[data-fam]").forEach(function(b){
     b.addEventListener("click", function(){ senFiltro = b.getAttribute("data-fam"); vSenales(); });
@@ -1155,19 +1045,41 @@ var TK_CARTAS = [
   { color:"tk-turq", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
   { color:"tk-ama", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
 ];
-/* Señales cuya identidad es puro TEXTO: con el texto oculto serían adivinanza
-   imposible o pares idénticos (MÁXIMA vs MÍNIMA, PARE vs PARE NIÑOS). Quedan
-   fuera de la trivia; siguen íntegras en la galería y el estudio. */
-var TRIVIA_EXCLUIR = { "velocidad-maxima":1, "velocidad-minima":1, "velocidad-maxima-zona-30":1,
-  "zona-30":1, "fin-zona-30":1, "no-entrar":1, "solo-transporte-publico":1,
-  "permitido-virar-derecha-con-luz-roja":1, "pare-ninos":1 };
+/* Señales cuyo ARTE OFICIAL trae escrito su propio nombre (o lo delata):
+   mostrarlas regalaría la respuesta. El bitmap del libro no se altera jamás
+   (RB-013), así que quedan fuera de la trivia; siguen íntegras en la galería.
+   Auditado página a página contra el PDF (150-160). Las letras-símbolo (la E
+   de estacionamiento, SOS, cifras como 300 m) NO delatan el nombre y se juegan. */
+var TRIVIA_EXCLUIR = { "pare":1, "pare-ninos":1, "no-cambiar-de-pista":1,
+  "preferencia-ciclistas-al-virar-derecha":1, "preferencia-ciclistas-al-virar-izquierda":1,
+  "preferencia-ciclistas-al-cambiar-de-pista":1, "preferencia-ciclistas-al-cambiar-de-pista-2":1,
+  "prohibida-circulacion-de-vehiculos-motorizados":1, "no-peatones":1,
+  "velocidad-maxima":1, "velocidad-minima":1, "velocidad-maxima-zona-30":1,
+  "fin-prohibicion-o-restriccion":1, "solo-televia-o-sistema-complementario":1,
+  "preferencia-al-sentido-contrario":1, "control":1, "uso-obligatorio-de-cadenas":1,
+  "solo-motocicletas":1, "via-segregada-buses":1, "via-segregada-buses-2":1,
+  "solo-transporte-publico":1, "estacionamiento-reservado":1,
+  "permitido-virar-derecha-con-luz-roja":1, "permitido-virar-izquierda-con-luz-roja":1,
+  "proximidad-de-senal-pare":1, "peligro":1,
+  "zona-30":1, "fin-zona-30":1, "salida-inmediata":1, "parada-mixta":1, "pista-solo-buses":1,
+  "control-fotografico":1, "control-con-camara":1, "fin-ciclovia":1,
+  "zona-espera-especial-ciclos":1, "zona-espera-especial-ciclos-2":1, "zona-espera-especial-ciclos-3":1,
+  "zona-de-espera-adelantada-motos":1, "zona-de-espera-adelantada-motos-2":1,
+  "fin-trabajos-en-la-via":1, "peligro-2":1, "desvio":1, "proximidad-de-desvio":1, "fin-de-desvio":1 };
 function armarRondaTrivia(n){
   var senales = (DATA.senales||[]).filter(function(s){ return !TRIVIA_EXCLUIR[s.id]; });
   var elegidas = shuffle(senales.slice()).slice(0, n);
   return elegidas.map(function(s){
-    var mismas = shuffle(senales.filter(function(x){ return x.id!==s.id && x.familia===s.familia; }));
-    var otras = shuffle(senales.filter(function(x){ return x.id!==s.id && x.familia!==s.familia; }));
-    var distractores = mismas.concat(otras).slice(0,3).map(function(x){ return x.nombre; });
+    /* las variantes reales del libro comparten NOMBRE (espejos, auto/camión,
+       los 9 cruces): los distractores se eligen por nombre distinto y sin
+       repetirse, o la respuesta correcta aparecería dos veces en las tarjetas */
+    var vistos = {}; vistos[s.nombre] = 1;
+    var candidatos = shuffle(senales.filter(function(x){ return x.familia===s.familia; }))
+             .concat(shuffle(senales.filter(function(x){ return x.familia!==s.familia; })));
+    var distractores = [];
+    candidatos.forEach(function(x){
+      if(distractores.length<3 && !vistos[x.nombre]){ vistos[x.nombre]=1; distractores.push(x.nombre); }
+    });
     var opciones = shuffle([s.nombre].concat(distractores));
     return { s:s, opciones:opciones, correcta:opciones.indexOf(s.nombre) };
   });
@@ -1210,7 +1122,7 @@ function pintarTrivia(){
       '<div class="barra"><i style="width:'+Math.round(100*TR.i/TR.qs.length)+'%"></i></div></div>'+
     '</div>'+
     '<div class="tk-zona">'+
-      '<div class="tk-senal">'+senalSVG(it.s, 190, true)+'</div>'+
+      '<div class="tk-senal">'+senalImg(it.s, 190)+'</div>'+
       '<div class="tk-cartas" id="tk-cartas">'+cartas+'</div>'+
       '<p class="sub" style="text-align:center;font-size:13px">Responde tocando una tarjeta o con las teclas 1–4</p>'+
     '</div>'
@@ -1497,14 +1409,14 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.2",
+  version: "1.3",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,
   dominioGlobal: dominioGlobal,
   vencidasHoy: vencidasHoy,
   triviaEstado: function(){ return TR; },
-  senalSVG: senalSVG
+  senalImg: senalImg
 };
 
 })();

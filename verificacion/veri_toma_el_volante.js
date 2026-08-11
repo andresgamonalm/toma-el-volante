@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.2", marca.version === "1.2", marca.version);
+  chk("versión interna 1.3", marca.version === "1.3", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -241,8 +241,31 @@ function chk(nombre, ok, extra) {
   chk("simulacro entregado APROBADO 38/38 (mapeo consistente)", res.ap && res.pts.startsWith("38"), JSON.stringify(res));
   await shot("resultado");
 
-  // 6. señales + trivia estilo tarjetas (maqueta del usuario)
-  await page.goto("http://127.0.0.1:8940/#/senales"); await page.waitForTimeout(300); await shot("senales");
+  // 6. señales (arte OFICIAL del libro) + trivia estilo tarjetas (maqueta del usuario)
+  await page.goto("http://127.0.0.1:8940/#/senales"); await page.waitForTimeout(300);
+  const catalogo = await page.evaluate(() => {
+    const sen = window.RUTAB.data.senales, porFam = {};
+    sen.forEach(s => { porFam[s.familia] = (porFam[s.familia] || 0) + 1; });
+    return { total: sen.length, porFam, filtros: document.querySelectorAll(".filtros .filtro").length,
+             cards: document.querySelectorAll(".sen-card").length };
+  });
+  chk("señales: catálogo COMPLETO del anexo (195 del libro oficial)", catalogo.total === 195, JSON.stringify(catalogo));
+  chk("señales: 4 familias (62 regl./73 prev./46 inf./14 transitorias) y 5 filtros",
+    catalogo.porFam.reglamentaria === 62 && catalogo.porFam.preventiva === 73 &&
+    catalogo.porFam.informativa === 46 && catalogo.porFam.transitoria === 14 && catalogo.filtros === 5,
+    JSON.stringify(catalogo));
+  chk("señales: la galería pinta las 195 tarjetas", catalogo.cards === 195, String(catalogo.cards));
+  // el arte es BITMAP oficial servido desde /senales/ y carga de verdad
+  const artOk = await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll(".sen-card .senal-img")];
+    const muestra = [imgs[0], imgs[60], imgs[130], imgs[imgs.length - 1]].filter(Boolean);
+    /* las de abajo del pliegue son lazy: forzarlas a eager dispara su carga */
+    muestra.forEach(im => { im.loading = "eager"; });
+    await Promise.all(muestra.map(im => im.complete ? 1 : new Promise(r => { im.onload = im.onerror = r; })));
+    return muestra.map(im => im.naturalWidth > 50 && im.src.includes("/senales/")).every(Boolean);
+  });
+  chk("señales: el arte oficial (PNG del PDF) carga en la galería", artOk === true, String(artOk));
+  await shot("senales");
   const btnTrivia = await page.evaluate(() => (document.getElementById("sen-quiz") || {}).textContent || "");
   chk("señales: el botón principal lanza la trivia", btnTrivia.includes("trivia") || btnTrivia.includes("Trivia"), btnTrivia);
   await page.goto("http://127.0.0.1:8940/#/trivia"); await page.waitForSelector("#tr-partir");
@@ -252,6 +275,17 @@ function chk(nombre, ok, extra) {
     colores: [...document.querySelectorAll(".tk-carta")].map(c => getComputedStyle(c).backgroundColor)
   }));
   chk("trivia: 4 tarjetas de color distintas", cartas.n === 4 && new Set(cartas.colores).size === 4, JSON.stringify(cartas));
+  const rondaSana = await page.evaluate(async () => {
+    const tr = window.RUTAB.triviaEstado();
+    const excl = ["pare","velocidad-minima","desvio","zona-espera-especial-ciclos","peligro","peligro-2"];
+    const sinExcluidas = tr.qs.every(q => !excl.includes(q.s.id));
+    const opcionesUnicas = tr.qs.every(q => new Set(q.opciones).size === 4 && q.opciones[q.correcta] === q.s.nombre);
+    const img = document.querySelector(".tk-senal .senal-img");
+    if (img && !img.complete) await new Promise(r => { img.onload = img.onerror = r; });
+    return { sinExcluidas, opcionesUnicas, imgOficial: !!img && img.src.includes("/senales/") && img.naturalWidth > 50 };
+  });
+  chk("trivia: arte oficial visible, sin señales que se autonombran y 4 opciones únicas",
+    rondaSana.sinExcluidas && rondaSana.opcionesUnicas && rondaSana.imgOficial, JSON.stringify(rondaSana));
   const puntosAntes = await page.evaluate(() => window.RUTAB.perfil().puntos || 0);
   // primera respuesta correcta para la captura con feedback
   await page.evaluate(() => {

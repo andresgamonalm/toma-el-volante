@@ -194,7 +194,7 @@ a.lanz,a.lanz:hover,a.cap-card,a.cap-card:hover,.tb-logo:hover,.tabbar a:hover{t
 /* ============ Trivia de señales (tarjetas de color, maqueta del usuario) ============ */
 .tk-zona{max-width:860px;margin:0 auto;display:grid;gap:18px}
 .tk-senal{background:var(--blanco);border-radius:var(--r);padding:24px;display:flex;align-items:center;justify-content:center;min-height:230px}
-.tk-senal svg{width:190px !important;height:190px !important}
+.tk-senal .senal-img{max-width:190px !important;max-height:190px !important;width:auto;height:auto}
 .tk-cartas{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .tk-carta{display:flex;align-items:center;gap:14px;border:0;border-radius:var(--r);padding:16px 20px;min-height:92px;cursor:pointer;font:inherit;text-align:left;color:#fff;transition:transform .12s ease-out,opacity .18s ease}
 .tk-carta:active{transform:scale(.98)}
@@ -213,7 +213,7 @@ a.lanz,a.lanz:hover,a.cap-card,a.cap-card:hover,.tb-logo:hover,.tabbar a:hover{t
 .tk-carta.apagada{opacity:.3}
 @media (hover:hover) and (pointer:fine){ .tk-carta:not([disabled]):hover{transform:translateY(-2px)} }
 @media (prefers-reduced-motion:reduce){ .tk-carta{transition:opacity .18s ease} .tk-carta:active,.tk-carta:not([disabled]):hover{transform:none} }
-@media (max-width:600px){ .tk-senal{min-height:180px} .tk-senal svg{width:140px !important;height:140px !important} .tk-carta{min-height:78px;padding:12px 14px} .tk-nombre{font-size:15px} }
+@media (max-width:600px){ .tk-senal{min-height:180px} .tk-senal .senal-img{max-width:140px !important;max-height:140px !important} .tk-carta{min-height:78px;padding:12px 14px} .tk-nombre{font-size:15px} }
 
 /* ============ Quiz ============ */
 .quiz-top{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
@@ -291,8 +291,9 @@ a.lanz,a.lanz:hover,a.cap-card,a.cap-card:hover,.tb-logo:hover,.tabbar a:hover{t
 /* ============ Señales ============ */
 .sen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
 .sen-card{background:#fff;border-radius:var(--r);padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
-.sen-card svg{width:96px;height:96px}
-.sen-card b{color:var(--navy);font-size:15px}
+.sen-art{height:104px;display:flex;align-items:center;justify-content:center}
+.sen-card .senal-img{width:auto;height:auto}
+.sen-card b{color:var(--navy);font-size:15px;overflow-wrap:anywhere}
 .sen-card span{font-size:13px;color:var(--gris-m)}
 .filtros{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
 .filtro{padding:8px 16px;border-radius:var(--r);background:#fff;color:var(--gris-m);font-weight:500;min-height:40px}

@@ -16,6 +16,9 @@ llamado "Ruta B"; renombrado en ago-2026 y mudado a este repositorio propio.)
 - `datos_toma_el_volante.js` — banco de preguntas, fichas y señales. **Generado, no
   editar a mano**: cada pregunta lleva cita textual y página del libro oficial,
   verificadas programáticamente.
+- `senales/` — las **195 señales del anexo oficial** (páginas 150-160 del libro) con su
+  arte ORIGINAL extraído del PDF, sin alteración: nombres verbatim, 4 familias
+  (reglamentarias, preventivas, informativas y transitorias).
 - `brand/` — identidad del producto (logo/ícono SVG, PNG, ICO multiresolución):
   volante navy `#040764` con empuñaduras amarillas `#FCE865` en la posición de manos
   9:15, wordmark Roboto 600 en trazados vectoriales.

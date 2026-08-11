@@ -15,8 +15,9 @@ SPA 100% estática SIN backend, sin build, sin dependencias en ejecución. Tres 
 **raíz del repo**: `index.html` (tokens + **Roboto 400/500/600 embebida en base64**: funciona
 con doble clic sin internet), `app_toma_el_volante.js` (motor: router hash `#/login #/home
 #/estudiar #/repaso #/simulacro #/senales #/trivia #/plan #/progreso #/configuracion`, perfiles, quiz, Leitner,
-simulacro, señales SVG, progreso, CSV, respaldo) y `datos_toma_el_volante.js` (banco GENERADO,
-no editar a mano). Progreso en localStorage por perfil.
+simulacro, señales, progreso, CSV, respaldo), `datos_toma_el_volante.js` (banco GENERADO,
+no editar a mano) + carpeta `senales/` (195 PNG oficiales del anexo). Progreso en localStorage
+por perfil.
 - **Claves internas históricas — NO renombrar** (se pierde el avance guardado): localStorage
   `rutab:v1` y `rutab:v1:p:<perfil>`, globals `window.RUTAB_DATA` (banco) y `window.RUTAB`
   (interfaz de pruebas E2E). Los respaldos viejos con `app:"ruta-b"` se aceptan al restaurar.
@@ -26,11 +27,11 @@ no editar a mano). Progreso en localStorage por perfil.
 ## Contenido fidedigno (no rehacer)
 - Banco construido desde el **Libro para la Conducción en Chile — clase B (CONASET, edición
   27-feb-2026)**, descarga oficial en mejoresconductores.conaset.cl. **262 preguntas** (cada
-  una con cita VERBATIM + página, validadas programáticamente), **87 fichas**, **56 señales**
-  en SVG propio fiel al anexo. El banco real de Nexteo (+1.000) NO es público (venderlo es
-  ilícito según MTT) — no intentar conseguirlo. Pipeline de regeneración: `ensamblar_banco.py`
-  (scratchpad de la sesión original); ante nueva edición del libro, repetir extracción +
-  validación de citas (cita no-substring ⇒ pregunta eliminada).
+  una con cita VERBATIM + página, validadas programáticamente), **87 fichas**, **195 señales
+  con el ARTE OFICIAL del anexo** (v1.3, ver más abajo). El banco real de Nexteo (+1.000) NO
+  es público (venderlo es ilícito según MTT) — no intentar conseguirlo. Pipeline de
+  regeneración: `ensamblar_banco.py` (scratchpad de la sesión original); ante nueva edición
+  del libro, repetir extracción + validación de citas (cita no-substring ⇒ pregunta eliminada).
 - **Modalidad oficial replicada (verificada):** 35 preguntas, 3 con DOBLE puntaje (alcohol,
   velocidad, SRI), 38 pts máx, aprueba con 33, 45 minutos (minuta Senado Nexteo, gob.cl 2024).
 - **Método TDA:** micro-quiz de 10 · fichas de UNA idea (≤20 s) · Leitner 1-2-4-7-15 días ·
@@ -48,7 +49,7 @@ no editar a mano). Progreso en localStorage por perfil.
 - **RB-006 (corrección dura del usuario): NUNCA azul sobre azul** — sobre superficies navy,
   toda caja va en fondo sólido claramente distinto (blanco); nada de navy-d ni translúcidos
   como fondo de caja. El arnés E2E lo asevera.
-- Decisiones RB-001..010 en `DECISIONES-VISUALES.md` (leerlas antes de proponer cambios).
+- Decisiones RB-001..013 en `DECISIONES-VISUALES.md` (leerlas antes de proponer cambios).
 
 ## Acuerdos de trabajo
 1. Trabajar en `main` de ESTE repo (git push origin HEAD:main).
@@ -92,15 +93,34 @@ no editar a mano). Progreso en localStorage por perfil.
 - **RB-012**: `.ico` con regla base 20px + width/height intrínsecos; señalSVG viewBox −8..116
   (rombos sin cortar) y tamaño por CSS. Lección: REVISAR toda captura generada antes de entregar.
 - **RB-013 (v1.2.2)**: señalética = NORMATIVA, jamás paleta de marca: rojo #C8102E, amarillo
-  #FFCD00, azul #0057B7, negro puro (app + acceso.html + maquetas). Trivia: texto de la señal
-  OCULTO con barras neutras (señalSVG(s,px,true); letras-símbolo se conservan) y TRIVIA_EXCLUIR
-  con las 9 señales de identidad textual. Pendiente MAYOR (orden del usuario): NO reproducir —
-  integrar el ARTE REAL del anexo del libro CONASET (~146 señales según él; hay 56 SVG interinos).
-  Falta conseguir el PDF binario (egress bloquea conaset.cl; opciones: su Google Drive o que lo
-  suba al repo).
+  #FFCD00, azul #0057B7, negro puro (siguen en acceso.html + maquetas decorativas).
+
+## Señales v1.3 — ARTE OFICIAL del libro (11-ago, no rehacer)
+El usuario subió el PDF del libro a su Drive ("Libro_para_la_conduccion_en_Chile_Clase_B_27-02-2026",
+170 págs). De su anexo (págs. 150-160) se extrajeron las **195 señales** con el arte ORIGINAL:
+- **Extracción por RECORTE DE PÁGINA** (PyMuPDF `get_pixmap(clip=bbox)`), no por xref: el PDF
+  reutiliza bitmaps con matrices espejo (angostamiento der/izq comparten imagen) y `extract_image`
+  entregaría orientación errada; el recorte reproduce EXACTO lo impreso (vectores incluidos:
+  SALIDA CARRO BOMBEROS; rasters chicos: BARRERAS). PNG paleta 128 colores, ~2.5 MB total, en
+  **`senales/<id>.png`** (ruta relativa → funciona en producción y con doble clic).
+- **Catálogo** en DATA.senales: `{id, nombre, familia, pagina, descripcion?}`. Nombres VERBATIM
+  del libro, erratas incluidas ("MATENGA SU DERECHA", "SISTEMA COPLEMENTARIO" — NO corregir).
+  4 familias: reglamentaria 62 · preventiva 73 · informativa 46 · **transitoria 14** (nueva,
+  pág. 160 naranjas). Variantes reales comparten nombre y se distinguen por id (-2/-3): espejos
+  izq/der, auto/camión, los 9 CRUCES, PROHIBIDO ESTACIONAR con placa de excepción. Celdas
+  multi-lámina recompuestas: BALIZAS DE ACERCAMIENTO (300/200/100 m) y DESVÍO (2 flechas).
+  La lámina duplicada de ZONA ESPERA ESPECIAL CICLOS en p.159 se deduplicó. Descripciones: se
+  traspasaron las 58 ya aprobadas (match nombre+familia); el resto sin descripción (no inventar).
+- **Renderer `senalImg(s,px)`** (img + lazy); los SVG esquemáticos (SEN_PICTO/senalSVG/pictoSVG)
+  se ELIMINARON del app. Galería: 5 filtros con conteo (Todas/4 familias) + marco `.sen-art`.
+- **Trivia**: el bitmap jamás se tapa → `TRIVIA_EXCLUIR` = 44 señales cuyo arte escribe su
+  propio nombre (auditadas página a página); letras-símbolo (E, SOS, cifras) sí juegan (pool 151).
+  Los distractores se arman por NOMBRE distinto y sin repetir (las variantes comparten nombre).
+- Pipeline reproducible en el scratchpad de la sesión (`catalogo_final.json` + scripts PyMuPDF).
 
 ## Estado
-v1.2 (11-ago-2026): seguridad de sitio + trivia + fichas claras/avance + plan con .ics,
-verificado **35/35 PASS**. v1.1: rebrand + RB-006. Pendientes: elección del usuario entre las
-3 propuestas de rediseño estructural (P5, regla [16]); si elige, implementarla completa;
-correo directo de recordatorios (fase 2 opcional); mejora móvil "Hoy te toca" (pre-existente).
+v1.3 (11-ago-2026): arte oficial CONASET en señales/trivia/galería, 4 familias, 195 señales.
+v1.2: seguridad de sitio + trivia + fichas claras/avance + plan con .ics (35/35 PASS). v1.1:
+rebrand + RB-006. Pendientes: elección del usuario entre las 3 propuestas de rediseño
+estructural (P5, regla [16]); si elige, implementarla completa; correo directo de
+recordatorios (fase 2 opcional); mejora móvil "Hoy te toca" (pre-existente).
