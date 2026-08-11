@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Toma el Volante">
+  <!-- Placa navy (familia Gamonal) -->
+  <rect x="36" y="36" width="440" height="440" rx="44" fill="#040764"/>
+  <!-- Volante: aro + 3 rayos + cubo -->
+  <circle cx="256" cy="256" r="146" fill="none" stroke="#FFFFFF" stroke-width="36"/>
+  <g stroke="#FFFFFF" stroke-width="32" stroke-linecap="round">
+    <line x1="256" y1="256" x2="134" y2="256"/>
+    <line x1="256" y1="256" x2="378" y2="256"/>
+    <line x1="256" y1="256" x2="256" y2="378"/>
+  </g>
+  <circle cx="256" cy="256" r="58" fill="#FFFFFF"/>
+  <!-- Manos en 9:15: empuñaduras amarillas sobre el aro -->
+  <g stroke="#FCE865" stroke-width="36" stroke-linecap="round" fill="none">
+    <path d="M 122.6 315.4 A 146 146 0 0 1 122.6 196.6"/>
+    <path d="M 389.4 196.6 A 146 146 0 0 1 389.4 315.4"/>
+  </g>
+</svg>

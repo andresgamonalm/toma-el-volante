@@ -1,0 +1,15 @@
+# Decisiones visuales — Toma el Volante
+
+Registro de correcciones y rechazos del usuario (obligatorio según la skill
+`lineamientos-marca-gamonal`). Leerlo antes de proponer cualquier cambio visual;
+no repetir jamás una solución rechazada. Heredado del registro de simple-block-builder
+al independizarse el proyecto (ago-2026).
+
+| ID | Pieza o pantalla | Corrección o rechazo | Decisión vigente | Estado |
+|---|---|---|---|---|
+| RB-001 | Todo el aplicativo | Orden del usuario: "mira lo que existe, copia y MEJORA, mezcla lo mejor de una con lo mejor de otra" | Síntesis de referentes: modalidad exacta Nexteo (35/3×2/38/33/45min), citas verificables del libro + pista a los 20s (simulador sivlek14, reimplementado, no copiado), temarios con avance (practicatest), puntos/racha (Kahoot sobrio), micro-sesiones+repetición espaciada Leitner (Duolingo/Anki) | VIGENTE |
+| RB-002 | Contenido | Orden del usuario: "nada de fotos externas, exactamente lo del CONASET" | Sin Envato ni fotos stock. Recurso visual = señales de tránsito en SVG propio fiel al anexo oficial del libro; todo el contenido citado del Libro para la Conducción en Chile (feb 2026), cita+página verificadas programáticamente | VIGENTE |
+| RB-003 | Identidad | — | Logo propio: placa de señal navy #040764 + demarcación amarilla discontinua #FCE865 + "B" blanca; wordmark Roboto 600. Radio único 8px en todo el app. Endoso "Desarrollado por Gamonal" tipográfico en login/config | REEMPLAZADA por RB-005 (el radio 8px y el endoso siguen vigentes) |
+| RB-004 | Quiz (pedagogía TDA) | — | Una pregunta por pantalla; timer de foco 20s OPCIONAL que al agotarse da pista + descarta 1 alternativa (nunca falla automática); feedback inmediato con explicación y cita colapsable; errores sin castigo (vuelven vía Leitner 1-2-4-7-15 días); Roboto embebida para uso offline | VIGENTE |
+| RB-005 | Nombre e identidad (rebrand ago-2026) | El usuario pidió mejorar el nombre; propuso "Preparando el volante", se le presentaron variantes y eligió **"Toma el Volante"** (descartado "Study in route" por spanglish) | Producto = **Toma el Volante**. Símbolo: VOLANTE blanco (aro + 3 rayos + cubo) sobre placa navy #040764, con empuñaduras amarillas #FCE865 en posición de manos **9:15**; fondos oscuros: placa blanca, volante navy, empuñaduras #FADB0E. Wordmark "Toma el Volante" Roboto 600 en trazados vectoriales + bajada "Entrenador del examen Clase B". Claves internas (`rutab:v1`, `window.RUTAB*`) se conservan para no perder progreso | VIGENTE |
+| RB-006 | Login · panel visual (datos del examen) | "Te lo he dicho mil veces y en las reglas de gamonal está: no puedes poner azul sobre azul" (las tarjetas de stats iban navy-d sobre el panel navy) | Sobre superficies navy, toda caja/card va en **fondo sólido claramente distinto: BLANCO** (cifra navy 600, etiqueta gris medio #545454). Prohibido navy-d o translúcidos como fondo de caja sobre navy (el navy-d de HOVER de botones navy sobre fondo claro sí sigue: es estado, no caja). Assert permanente en el arnés E2E | VIGENTE |
