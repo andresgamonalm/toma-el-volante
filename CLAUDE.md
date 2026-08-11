@@ -91,8 +91,13 @@ no editar a mano). Progreso en localStorage por perfil.
   nunca los colores Kahoot de la referencia (rojo/verde confunden con incorrecto/correcto).
 - **RB-012**: `.ico` con regla base 20px + width/height intrínsecos; señalSVG viewBox −8..116
   (rombos sin cortar) y tamaño por CSS. Lección: REVISAR toda captura generada antes de entregar.
-- Pendiente MAYOR en curso: ampliar el catálogo de señales (usuario: el anexo oficial trae ~146;
-  hay 56). Verificar el número real contra el libro y producir las faltantes en SVG propio.
+- **RB-013 (v1.2.2)**: señalética = NORMATIVA, jamás paleta de marca: rojo #C8102E, amarillo
+  #FFCD00, azul #0057B7, negro puro (app + acceso.html + maquetas). Trivia: texto de la señal
+  OCULTO con barras neutras (señalSVG(s,px,true); letras-símbolo se conservan) y TRIVIA_EXCLUIR
+  con las 9 señales de identidad textual. Pendiente MAYOR (orden del usuario): NO reproducir —
+  integrar el ARTE REAL del anexo del libro CONASET (~146 señales según él; hay 56 SVG interinos).
+  Falta conseguir el PDF binario (egress bloquea conaset.cl; opciones: su Google Drive o que lo
+  suba al repo).
 
 ## Estado
 v1.2 (11-ago-2026): seguridad de sitio + trivia + fichas claras/avance + plan con .ics,

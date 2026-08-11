@@ -224,10 +224,10 @@ function shell(contHTML){
 
 /* ---------- vista: login (acceso y perfiles) ---------- */
 function senalMiniSVG(tipo){
-  if(tipo==="pare") return '<svg viewBox="0 0 100 100"><path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#CF1717" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="24" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text></svg>';
-  if(tipo==="ceda") return '<svg viewBox="0 0 100 100"><path d="M6 14h88L50 92z" fill="#fff" stroke="#CF1717" stroke-width="10"/></svg>';
-  if(tipo==="vel") return '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#fff" stroke="#CF1717" stroke-width="10"/><text x="50" y="64" font-size="36" font-weight="700" fill="#3B3B3B" text-anchor="middle" font-family="Roboto,Arial">50</text></svg>';
-  if(tipo==="curva") return '<svg viewBox="0 0 100 100"><rect x="8" y="8" width="84" height="84" rx="10" transform="rotate(45 50 50)" fill="#FCE865" stroke="#3B3B3B" stroke-width="4"/><path d="M38 72c0-14 24-16 24-30" stroke="#3B3B3B" stroke-width="8" fill="none" stroke-linecap="round"/><path d="m56 34 6 8 4-10z" fill="#3B3B3B"/></svg>';
+  if(tipo==="pare") return '<svg viewBox="0 0 100 100"><path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#C8102E" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="24" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text></svg>';
+  if(tipo==="ceda") return '<svg viewBox="0 0 100 100"><path d="M6 14h88L50 92z" fill="#fff" stroke="#C8102E" stroke-width="10"/></svg>';
+  if(tipo==="vel") return '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#fff" stroke="#C8102E" stroke-width="10"/><text x="50" y="64" font-size="36" font-weight="700" fill="#000000" text-anchor="middle" font-family="Roboto,Arial">50</text></svg>';
+  if(tipo==="curva") return '<svg viewBox="0 0 100 100"><rect x="8" y="8" width="84" height="84" rx="10" transform="rotate(45 50 50)" fill="#FFCD00" stroke="#000000" stroke-width="4"/><path d="M38 72c0-14 24-16 24-30" stroke="#000000" stroke-width="8" fill="none" stroke-linecap="round"/><path d="m56 34 6 8 4-10z" fill="#000000"/></svg>';
   return "";
 }
 function vLogin(){
@@ -1015,25 +1015,36 @@ var SEN_PICTO = {
   "control-fotografico":"camara","zona-30":"txtZona30","fin-zona-30":"txtFinZona30","retorno-en-autopista":"flechaU"
 };
 var SEN_TACHADO = { "no-virar-izquierda":1,"no-virar-derecha":1,"no-virar-en-u":1,"no-cambiar-de-pista":1,"prohibido-estacionar":1 };
-function senalSVG(s, px){
+function senalSVG(s, px, ocultarTexto){
   px = px||96;
   var f = s.familia, dib = "";
   var pict = SEN_PICTO[s.id]||s.picto||"";
-  if(s.id==="pare") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#CF1717" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="22" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
-  else if(s.id==="pare-ninos") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#CF1717" stroke="#fff" stroke-width="4"/><text x="50" y="50" font-size="17" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text><text x="50" y="70" font-size="14" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">NIÑOS</text>';
-  else if(s.id==="ceda-el-paso") dib = '<path d="M6 14h88L50 92z" fill="#fff" stroke="#CF1717" stroke-width="10"/>';
-  else if(s.id==="cruz-de-san-andres") dib = '<g transform="rotate(0 50 50)"><path d="M14 30 86 70M14 70 86 30" stroke="#CF1717" stroke-width="18" stroke-linecap="round"/><path d="M14 30 86 70M14 70 86 30" stroke="#fff" stroke-width="10" stroke-linecap="round"/></g>';
+  if(s.id==="pare") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#C8102E" stroke="#fff" stroke-width="4"/><text x="50" y="60" font-size="22" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
+  else if(s.id==="pare-ninos") dib = '<path d="M30 4h40l26 26v40L70 96H30L4 70V30z" fill="#C8102E" stroke="#fff" stroke-width="4"/><text x="50" y="50" font-size="17" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text><text x="50" y="70" font-size="14" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">NIÑOS</text>';
+  else if(s.id==="ceda-el-paso") dib = '<path d="M6 14h88L50 92z" fill="#fff" stroke="#C8102E" stroke-width="10"/>';
+  else if(s.id==="cruz-de-san-andres") dib = '<g transform="rotate(0 50 50)"><path d="M14 30 86 70M14 70 86 30" stroke="#C8102E" stroke-width="18" stroke-linecap="round"/><path d="M14 30 86 70M14 70 86 30" stroke="#fff" stroke-width="10" stroke-linecap="round"/></g>';
   else if(f==="reglamentaria"){
-    if(s.forma==="rectángulo") dib = '<rect x="8" y="16" width="84" height="68" rx="6" fill="#fff" stroke="#3B3B3B" stroke-width="3"/>'+pictoSVG(pict,"#3B3B3B");
-    else dib = '<circle cx="50" cy="50" r="44" fill="#fff" stroke="#CF1717" stroke-width="9"/>'+pictoSVG(pict,"#3B3B3B")+(SEN_TACHADO[s.id]? '<path d="M22 78 78 22" stroke="#CF1717" stroke-width="7" stroke-linecap="round"/>':"");
+    if(s.forma==="rectángulo") dib = '<rect x="8" y="16" width="84" height="68" rx="6" fill="#fff" stroke="#000000" stroke-width="3"/>'+pictoSVG(pict,"#000000");
+    else dib = '<circle cx="50" cy="50" r="44" fill="#fff" stroke="#C8102E" stroke-width="9"/>'+pictoSVG(pict,"#000000")+(SEN_TACHADO[s.id]? '<path d="M22 78 78 22" stroke="#C8102E" stroke-width="7" stroke-linecap="round"/>':"");
   } else if(f==="preventiva"){
-    dib = '<rect x="11" y="11" width="78" height="78" rx="9" transform="rotate(45 50 50)" fill="#FCE865" stroke="#3B3B3B" stroke-width="4"/>'+pictoSVG(pict,"#3B3B3B");
+    dib = '<rect x="11" y="11" width="78" height="78" rx="9" transform="rotate(45 50 50)" fill="#FFCD00" stroke="#000000" stroke-width="4"/>'+pictoSVG(pict,"#000000");
   } else {
-    dib = '<rect x="4" y="14" width="92" height="72" rx="7" fill="#1C73CB"/>'+pictoSVG(pict,"#FFFFFF");
+    dib = '<rect x="4" y="14" width="92" height="72" rx="7" fill="#0057B7"/>'+pictoSVG(pict,"#FFFFFF");
   }
   /* viewBox con margen: el rombo preventivo rotado mide ~110 de diagonal y con
      el lienzo 0-100 salía CORTADO (corrección del usuario). El tamaño lo pone
      el contenedor por CSS (px queda como respaldo si no hay regla). */
+  if(ocultarTexto){
+    /* La trivia oculta las PALABRAS de la señal (para no regalar la respuesta)
+       con barras neutras; las letras-símbolo (E) y cifras cortas se conservan.
+       Orden del usuario: el símbolo jamás se altera, solo se cubre su texto. */
+    dib = dib.replace(/<text([^>]*)>([^<]{3,})<\/text>/g, function(m, attrs, txt){
+      var mx = /x="([\d.]+)"/.exec(attrs), my = /y="([\d.]+)"/.exec(attrs);
+      var x = mx? +mx[1] : 50, y = my? +my[1] : 50;
+      var w = Math.min(56, txt.length * 9);
+      return '<rect x="'+(x - w/2)+'" y="'+(y - 12)+'" width="'+w+'" height="12" rx="4" fill="#9AA4B5" opacity=".85"/>';
+    });
+  }
   return '<svg viewBox="-8 -8 116 116" style="max-width:100%;width:'+px+'px;height:auto" class="senal-svg" role="img" aria-label="'+esc(s.nombre)+'">'+dib+'</svg>';
 }
 function pictoSVG(p, color){
@@ -1071,7 +1082,7 @@ function pictoSVG(p, color){
     case "virIzq": return '<path d="M62 70V50a14 14 0 0 0-14-14H38" '+st+'/><path d="m44 26-12 10 12 10" '+st+'/>';
     case "virDer": return '<path d="M38 70V50a14 14 0 0 1 14-14h10" '+st+'/><path d="m56 26 12 10-12 10" '+st+'/>';
     case "cambioPista": return '<path d="M40 76V58c0-10 20-12 20-22v-8" '+st+'/><path d="m52 34 8-10 8 10" '+st+'/><path d="M32 26v10M32 48v10M32 70v6" '+st+' stroke-dasharray="none"/>';
-    case "noestac2": return '<text x="50" y="64" font-size="38" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">E</text><path d="M26 74 74 26M26 26l48 48" stroke="#CF1717" stroke-width="6" stroke-linecap="round"/>';
+    case "noestac2": return '<text x="50" y="64" font-size="38" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">E</text><path d="M26 74 74 26M26 26l48 48" stroke="#C8102E" stroke-width="6" stroke-linecap="round"/>';
     case "maxima": return '<text x="50" y="42" font-size="13" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">MÁXIMA</text><text x="50" y="72" font-size="30" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">50</text>';
     case "minima": return '<text x="50" y="42" font-size="13" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">MÍNIMA</text><text x="50" y="72" font-size="30" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">40</text>';
     case "num30": return '<text x="50" y="63" font-size="34" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">30</text>';
@@ -1085,12 +1096,12 @@ function pictoSVG(p, color){
     case "tunel": return '<path d="M26 76V52a24 24 0 0 1 48 0v24" '+st+'/><path d="M20 76h60" '+st+'/>';
     case "trenBarrera": return '<path d="M24 40 76 40" '+st+'/><path d="M28 40v26M72 40v26M24 72h52" '+st+'/><circle cx="30" cy="34" r="4" '+fl+'/><circle cx="50" cy="34" r="4" '+fl+'/><circle cx="70" cy="34" r="4" '+fl+'/>';
     case "rotonda": return '<circle cx="50" cy="52" r="14" '+st+'/><path d="M50 24v10M30 66l-6 8M76 74l-6-8" '+st+'/><path d="m44 28 6-8 6 8" '+fl+'/>';
-    case "miniPare": return '<path d="M40 28h20l13 13v20L60 74H40L27 61V41z" fill="#CF1717"/><text x="50" y="56" font-size="12" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
+    case "miniPare": return '<path d="M40 28h20l13 13v20L60 74H40L27 61V41z" fill="#C8102E"/><text x="50" y="56" font-size="12" font-weight="700" fill="#fff" text-anchor="middle" font-family="Roboto,Arial">PARE</text>';
     case "piedras": return '<circle cx="42" cy="62" r="8" '+fl+'/><circle cx="58" cy="66" r="6" '+fl+'/><circle cx="52" cy="46" r="5" '+fl+'/><path d="M62 30 50 42M68 40l-12 8" '+st+'/>';
     case "baden": return '<path d="M22 46c8 14 18 14 28 0s20-14 28 0" '+st+'/>';
     case "viento": return '<path d="M36 30v44" '+st+'/><path d="M36 32c14-6 22 8 34 2v18c-12 6-20-8-34-2" '+fl+'/>';
     case "autopista": return '<path d="M34 72V46c0-8 6-10 6-16v-4M66 72V46c0-8-6-10-6-16v-4" '+st+'/><path d="M24 40h52" '+st+'/>';
-    case "autopistaFin": return '<path d="M34 72V46c0-8 6-10 6-16v-4M66 72V46c0-8-6-10-6-16v-4" '+st+'/><path d="M24 40h52" '+st+'/><path d="M26 74 74 26" stroke="#CF1717" stroke-width="7" stroke-linecap="round"/>';
+    case "autopistaFin": return '<path d="M34 72V46c0-8 6-10 6-16v-4M66 72V46c0-8-6-10-6-16v-4" '+st+'/><path d="M24 40h52" '+st+'/><path d="M26 74 74 26" stroke="#C8102E" stroke-width="7" stroke-linecap="round"/>';
     case "telefono": return '<path d="M32 34c0-6 36-6 36 0l-4 12c-6-3-22-3-28 0z" '+fl+'/><rect x="42" y="52" width="16" height="22" rx="3" '+st+'/>';
     case "salidaDiag": return '<path d="M32 70 62 40" '+st+'/><path d="M62 58V40H44" '+st+'/>';
     case "chevrones": return '<path d="M30 34 46 50 30 66M54 34 70 50 54 66" '+st+'/>';
@@ -1101,7 +1112,7 @@ function pictoSVG(p, color){
     case "txtZona30": return '<text x="50" y="45" font-size="16" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ZONA</text><text x="50" y="70" font-size="22" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">30</text>';
     case "txtFinZona30": return '<text x="50" y="45" font-size="16" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">FIN</text><text x="50" y="70" font-size="20" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ZONA 30</text>';
     case "txtNoEntrar": return '<text x="50" y="46" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">NO</text><text x="50" y="66" font-size="15" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">ENTRAR</text>';
-    case "txtVireRojo": return '<text x="50" y="40" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">PERMITE VIRAR</text><text x="50" y="56" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">DERECHA CON</text><text x="50" y="72" font-size="11" font-weight="700" fill="#CF1717" text-anchor="middle" font-family="Roboto,Arial">LUZ ROJA</text>';
+    case "txtVireRojo": return '<text x="50" y="40" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">PERMITE VIRAR</text><text x="50" y="56" font-size="11" font-weight="700" fill="'+color+'" text-anchor="middle" font-family="Roboto,Arial">DERECHA CON</text><text x="50" y="72" font-size="11" font-weight="700" fill="#C8102E" text-anchor="middle" font-family="Roboto,Arial">LUZ ROJA</text>';
     default: return '<circle cx="50" cy="50" r="16" '+st+'/>';
   }
 }
@@ -1144,8 +1155,14 @@ var TK_CARTAS = [
   { color:"tk-turq", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
   { color:"tk-ama", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
 ];
+/* Señales cuya identidad es puro TEXTO: con el texto oculto serían adivinanza
+   imposible o pares idénticos (MÁXIMA vs MÍNIMA, PARE vs PARE NIÑOS). Quedan
+   fuera de la trivia; siguen íntegras en la galería y el estudio. */
+var TRIVIA_EXCLUIR = { "velocidad-maxima":1, "velocidad-minima":1, "velocidad-maxima-zona-30":1,
+  "zona-30":1, "fin-zona-30":1, "no-entrar":1, "solo-transporte-publico":1,
+  "permitido-virar-derecha-con-luz-roja":1, "pare-ninos":1 };
 function armarRondaTrivia(n){
-  var senales = DATA.senales||[];
+  var senales = (DATA.senales||[]).filter(function(s){ return !TRIVIA_EXCLUIR[s.id]; });
   var elegidas = shuffle(senales.slice()).slice(0, n);
   return elegidas.map(function(s){
     var mismas = shuffle(senales.filter(function(x){ return x.id!==s.id && x.familia===s.familia; }));
@@ -1193,7 +1210,7 @@ function pintarTrivia(){
       '<div class="barra"><i style="width:'+Math.round(100*TR.i/TR.qs.length)+'%"></i></div></div>'+
     '</div>'+
     '<div class="tk-zona">'+
-      '<div class="tk-senal">'+senalSVG(it.s)+'</div>'+
+      '<div class="tk-senal">'+senalSVG(it.s, 190, true)+'</div>'+
       '<div class="tk-cartas" id="tk-cartas">'+cartas+'</div>'+
       '<p class="sub" style="text-align:center;font-size:13px">Responde tocando una tarjeta o con las teclas 1–4</p>'+
     '</div>'
