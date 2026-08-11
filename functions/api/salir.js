@@ -4,6 +4,6 @@ import { cookieSalir } from "./_auth.js";
 export async function onRequestGet(ctx) {
   return new Response(null, {
     status: 302,
-    headers: { "Location": new URL("/acceso.html", ctx.request.url).toString(), "Set-Cookie": cookieSalir() }
+    headers: { "Location": new URL("/acceso", ctx.request.url).toString(), "Set-Cookie": cookieSalir() }
   });
 }

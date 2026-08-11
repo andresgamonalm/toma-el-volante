@@ -21,7 +21,7 @@ no editar a mano). Progreso en localStorage por perfil.
   `rutab:v1` y `rutab:v1:p:<perfil>`, globals `window.RUTAB_DATA` (banco) y `window.RUTAB`
   (interfaz de pruebas E2E). Los respaldos viejos con `app:"ruta-b"` se aceptan al restaurar.
 - **Deploy**: publicar este repo como sitio propio en Cloudflare Pages (estático, sin build).
-  Subdominio sugerido: **tomaelvolante.gamonal.app**.
+  Dominio configurado por el usuario: **toma-el-volante.gamonal.app** (Custom Domain del proyecto Pages).
 
 ## Contenido fidedigno (no rehacer)
 - Banco construido desde el **Libro para la Conducción en Chile — clase B (CONASET, edición
@@ -62,7 +62,10 @@ no editar a mano). Progreso en localStorage por perfil.
 
 ## Seguridad del sitio publicado (v1.2 — no rehacer)
 - **Puerta en el borde**: `functions/_middleware.js` — sin cookie válida no se sirve NINGÚN
-  archivo (redirige a `/acceso.html`; recursos → 401). `POST /api/acceso` valida correo +
+  archivo (redirige a **`/acceso`**; recursos → 401). ⚠️ GOTCHA REAL DE PRODUCCIÓN: Pages
+  aplica "pretty URLs" (redirige `/acceso.html`→`/acceso`); la lista libre debe incluir AMBAS
+  formas y las redirecciones de la puerta apuntar SIEMPRE a `/acceso`, o se produce un loop
+  infinito (ERR_TOO_MANY_REDIRECTS). El arnés emula las pretty URLs para cazarlo en local. `POST /api/acceso` valida correo +
   contraseña contra hash **PBKDF2-SHA256 100k** en `functions/api/_config.js` (NUNCA la
   contraseña: el repo es público) y emite cookie HMAC HttpOnly 30 días. `GET /api/salir`
   cierra. Cambio de clave: `verificacion/generar_acceso.html` (doble clic, genera el bloque

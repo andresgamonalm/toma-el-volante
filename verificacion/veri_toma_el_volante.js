@@ -52,7 +52,14 @@ async function cargarAuth() {
 
 function servirEstatico(p, res) {
   if (p === "/") p = "/index.html";
-  const f = path.join(APP, p);
+  /* Emula las "pretty URLs" de Cloudflare Pages: /foo.html redirige 301 a /foo
+     y /foo sirve foo.html. Sin esta emulación el loop de redirecciones de la
+     puerta (bug real de producción) no se detecta en local. */
+  if (p.endsWith(".html") && p !== "/index.html") {
+    res.statusCode = 301; res.setHeader("Location", p.slice(0, -5)); return res.end();
+  }
+  let f = path.join(APP, p);
+  if (!fs.existsSync(f) && fs.existsSync(f + ".html")) f = f + ".html";
   if (!f.startsWith(APP) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.statusCode = 404; return res.end("no"); }
   res.setHeader("Content-Type", MIME[path.extname(f)] || "application/octet-stream");
   res.end(fs.readFileSync(f));
@@ -116,9 +123,9 @@ function chk(nombre, ok, extra) {
   const sinCookie = await fetch("http://127.0.0.1:8940/app_toma_el_volante.js");
   chk("puerta: recurso sin sesión → 401", sinCookie.status === 401, String(sinCookie.status));
   const redir = await fetch("http://127.0.0.1:8940/", { headers: { Accept: "text/html" }, redirect: "manual" });
-  chk("puerta: navegación sin sesión → 302 a acceso.html", redir.status === 302 && (redir.headers.get("location") || "").includes("/acceso.html"), redir.status + " → " + redir.headers.get("location"));
+  chk("puerta: navegación sin sesión → 302 a /acceso (pretty URL, sin loop)", redir.status === 302 && (redir.headers.get("location") || "").endsWith("/acceso"), redir.status + " → " + redir.headers.get("location"));
   await page.goto("http://127.0.0.1:8940/");
-  chk("puerta: el navegador aterriza en la página de acceso", page.url().includes("/acceso.html"), page.url());
+  chk("puerta: el navegador aterriza en la página de acceso", /\/acceso(\.html)?$/.test(page.url()), page.url());
   await page.evaluate(() => document.fonts.ready);
   await shot("acceso");
   await page.fill("#inp-usuario", USUARIO);
@@ -343,7 +350,7 @@ function chk(nombre, ok, extra) {
 
   // 9. salir de la sesión
   await page.goto("http://127.0.0.1:8940/api/salir");
-  chk("salir: limpia la sesión y vuelve a la puerta", page.url().includes("/acceso.html"), page.url());
+  chk("salir: limpia la sesión y vuelve a la puerta", /\/acceso(\.html)?$/.test(page.url()), page.url());
   const trasSalir = await page.evaluate(() => fetch("/app_toma_el_volante.js").then(r => r.status));
   chk("salir: los recursos quedan cerrados de nuevo", trasSalir === 401, String(trasSalir));
 
