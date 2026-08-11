@@ -3,7 +3,10 @@
    banco (verifica de punta a punta el mapeo pregunta→alternativa: debe dar 38/38)
    y asevera las reglas duras de marca (tarjetas blancas sobre navy, RB-006).
    Uso: NODE_PATH=<ruta con playwright instalado> node veri_toma_el_volante.js [raíz del repo]
-   Chromium esperado en /opt/pw-browsers (sandbox de Claude Code). */
+   Chromium esperado en /opt/pw-browsers (sandbox de Claude Code).
+   Puerta de acceso: exporta TEV_USUARIO y TEV_CLAVE para probar las credenciales
+   REALES; sin esas variables se prueba el mismo mecanismo con credenciales de
+   prueba generadas al vuelo (nunca se escriben secretos en este archivo). */
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
@@ -13,13 +16,81 @@ const APP = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dir
 const ENT = path.join(APP, "entregables");
 const MIME = { ".html": "text/html;charset=utf-8", ".js": "text/javascript;charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".png": "image/png" };
 
-const server = http.createServer((req, res) => {
-  let p = decodeURIComponent(req.url.split("?")[0]);
+/* La puerta de acceso REAL (functions/) se ejecuta en este server de pruebas:
+   se copian los módulos a .mjs temporales (Node los importa como ESM sin
+   package.json) y cada request pasa primero por el middleware, igual que en
+   Cloudflare Pages. */
+const os = require("os");
+const AUTHTMP = fs.mkdtempSync(path.join(os.tmpdir(), "tev-auth-"));
+for (const [origen, destino] of [
+  ["functions/api/_config.js", "_config.mjs"],
+  ["functions/api/_auth.js", "_auth.mjs"],
+  ["functions/_middleware.js", "_middleware.mjs"],
+  ["functions/api/acceso.js", "acceso.mjs"],
+  ["functions/api/salir.js", "salir.mjs"]
+]) {
+  let src = fs.readFileSync(path.join(APP, origen), "utf8");
+  src = src.replace(/from "\.\/api\/(_[a-z]+)\.js"/g, 'from "./$1.mjs"').replace(/from "\.\/(_[a-z]+)\.js"/g, 'from "./$1.mjs"');
+  fs.writeFileSync(path.join(AUTHTMP, destino), src);
+}
+let MW = null, ACC = null, SAL = null;
+async function cargarAuth() {
+  if (!process.env.TEV_CLAVE) {
+    const salT = "0123456789abcdef0123456789abcdef";
+    const enc = new TextEncoder();
+    const mat = await crypto.subtle.importKey("raw", enc.encode("clave-de-prueba-tev"), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode(salT), iterations: 100000 }, mat, 256);
+    const hashT = [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, "0")).join("");
+    fs.writeFileSync(path.join(AUTHTMP, "_config.mjs"),
+      'export const ACCESO = { usuario: "prueba@tev.local", sal: "' + salT + '", hash: "' + hashT + '", iteraciones: 100000, diasSesion: 30 };\n');
+    console.log("AVISO: sin TEV_CLAVE en el entorno — la puerta se prueba con credenciales de PRUEBA (mismo mecanismo).");
+  }
+  MW = await import(path.join(AUTHTMP, "_middleware.mjs"));
+  ACC = await import(path.join(AUTHTMP, "acceso.mjs"));
+  SAL = await import(path.join(AUTHTMP, "salir.mjs"));
+}
+
+function servirEstatico(p, res) {
   if (p === "/") p = "/index.html";
   const f = path.join(APP, p);
   if (!f.startsWith(APP) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.statusCode = 404; return res.end("no"); }
   res.setHeader("Content-Type", MIME[path.extname(f)] || "application/octet-stream");
   res.end(fs.readFileSync(f));
+}
+
+async function volcarRespuesta(r, res) {
+  res.statusCode = r.status;
+  r.headers.forEach((v, k) => {
+    /* En pruebas locales por http:// se quita el flag Secure de la cookie */
+    if (k.toLowerCase() === "set-cookie") v = v.replace(/;\s*Secure/i, "");
+    res.setHeader(k, v);
+  });
+  const cuerpo = Buffer.from(await r.arrayBuffer());
+  res.end(cuerpo);
+}
+
+const SIGUE = Symbol("next");
+const server = http.createServer((req, res) => {
+  const trozos = [];
+  req.on("data", c => trozos.push(c));
+  req.on("end", async () => {
+    try {
+      const p = decodeURIComponent(req.url.split("?")[0]);
+      const request = new Request("http://127.0.0.1:8940" + req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(trozos)
+      });
+      if (p === "/api/acceso" && req.method === "POST") return await volcarRespuesta(await ACC.onRequestPost({ request, env: {} }), res);
+      if (p === "/api/salir") return await volcarRespuesta(await SAL.onRequestGet({ request, env: {} }), res);
+      const r = await MW.onRequest({ request, env: {}, next: async () => SIGUE });
+      if (r === SIGUE) return servirEstatico(p, res);
+      return await volcarRespuesta(r, res);
+    } catch (e) {
+      console.log("ERROR-SERVER:", e.message);
+      res.statusCode = 500; res.end("error");
+    }
+  });
 });
 
 let pasa = 0, falla = 0;
@@ -29,6 +100,7 @@ function chk(nombre, ok, extra) {
 }
 
 (async () => {
+  await cargarAuth();
   await new Promise(r => server.listen(8940, r));
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
   const errores = [];
@@ -38,7 +110,26 @@ function chk(nombre, ok, extra) {
   page.on("pageerror", e => errores.push("PAGEERROR: " + e.message));
   const shot = async (n) => page.screenshot({ path: path.join(ENT, "pantalla_" + n + "_toma_el_volante.jpg"), type: "jpeg", quality: 85 });
 
+  // 0. puerta de acceso (se ejecuta el middleware REAL de functions/)
+  const USUARIO = process.env.TEV_USUARIO || "prueba@tev.local";
+  const CLAVE = process.env.TEV_CLAVE || "clave-de-prueba-tev";
+  const sinCookie = await fetch("http://127.0.0.1:8940/app_toma_el_volante.js");
+  chk("puerta: recurso sin sesión → 401", sinCookie.status === 401, String(sinCookie.status));
+  const redir = await fetch("http://127.0.0.1:8940/", { headers: { Accept: "text/html" }, redirect: "manual" });
+  chk("puerta: navegación sin sesión → 302 a acceso.html", redir.status === 302 && (redir.headers.get("location") || "").includes("/acceso.html"), redir.status + " → " + redir.headers.get("location"));
   await page.goto("http://127.0.0.1:8940/");
+  chk("puerta: el navegador aterriza en la página de acceso", page.url().includes("/acceso.html"), page.url());
+  await page.evaluate(() => document.fonts.ready);
+  await shot("acceso");
+  await page.fill("#inp-usuario", USUARIO);
+  await page.fill("#inp-clave", "contraseña-equivocada");
+  await page.click("#btn-entrar");
+  await page.waitForSelector(".error.ver", { timeout: 5000 });
+  chk("puerta: credenciales malas muestran error claro", true);
+  await page.fill("#inp-clave", CLAVE);
+  await page.click("#btn-entrar");
+  await page.waitForURL(u => u.pathname === "/", { timeout: 8000 });
+  chk("puerta: credenciales buenas entran al aplicativo", true);
   await page.evaluate(() => document.fonts.ready);
 
   // 1. título + favicon + login
@@ -70,7 +161,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.1", marca.version === "1.1", marca.version);
+  chk("versión interna 1.2", marca.version === "1.2", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -79,8 +170,25 @@ function chk(nombre, ok, extra) {
   chk("8 capítulos listados", (await page.$$(".cap-card")).length === 8);
   await shot("capitulos");
 
-  // 4. micro-quiz con respuesta correcta
+  // 4a. fichas de estudio: tarjeta CLARA + avance de lectura persistente
   await page.click(".cap-card"); await page.waitForSelector("#btn-quiz");
+  const ficha = await page.evaluate(() => {
+    const f = document.querySelector(".ficha"); if (!f) return null;
+    return { bg: getComputedStyle(f).backgroundColor, contador: !!document.getElementById("cap-fichas-num") };
+  });
+  chk("fichas: tarjeta blanca de lectura (fin del navy agotador)", ficha && ficha.bg === "rgb(255, 255, 255)", JSON.stringify(ficha));
+  chk("fichas: contador de avance visible", ficha && ficha.contador);
+  await page.click("#ficha-sig"); await page.waitForTimeout(80);
+  await page.click("#ficha-sig"); await page.waitForTimeout(80);
+  const avanceFichas = await page.evaluate(() => ({
+    leidas: Object.keys(window.RUTAB.perfil().fichasLeidas).length,
+    num: document.getElementById("cap-fichas-num").textContent,
+    puntitosLeidos: document.querySelectorAll("#ficha-pts .leida").length
+  }));
+  chk("fichas: la lectura queda registrada (3 leídas, puntitos marcados)", avanceFichas.leidas >= 3 && avanceFichas.puntitosLeidos >= 2, JSON.stringify(avanceFichas));
+  await shot("fichas");
+
+  // 4b. micro-quiz con respuesta correcta
   await page.click("#btn-quiz"); await page.waitForSelector("#q-alts .alt");
   const okQuiz = await page.evaluate(() => {
     const txt = document.querySelector(".pregunta-txt").textContent;
@@ -126,14 +234,78 @@ function chk(nombre, ok, extra) {
   chk("simulacro entregado APROBADO 38/38 (mapeo consistente)", res.ap && res.pts.startsWith("38"), JSON.stringify(res));
   await shot("resultado");
 
-  // 6. señales, progreso, configuración
+  // 6. señales + trivia estilo tarjetas (maqueta del usuario)
   await page.goto("http://127.0.0.1:8940/#/senales"); await page.waitForTimeout(300); await shot("senales");
+  const btnTrivia = await page.evaluate(() => (document.getElementById("sen-quiz") || {}).textContent || "");
+  chk("señales: el botón principal lanza la trivia", btnTrivia.includes("trivia") || btnTrivia.includes("Trivia"), btnTrivia);
+  await page.goto("http://127.0.0.1:8940/#/trivia"); await page.waitForSelector("#tr-partir");
+  await page.click("#tr-partir"); await page.waitForSelector(".tk-carta");
+  const cartas = await page.evaluate(() => ({
+    n: document.querySelectorAll(".tk-carta").length,
+    colores: [...document.querySelectorAll(".tk-carta")].map(c => getComputedStyle(c).backgroundColor)
+  }));
+  chk("trivia: 4 tarjetas de color distintas", cartas.n === 4 && new Set(cartas.colores).size === 4, JSON.stringify(cartas));
+  const puntosAntes = await page.evaluate(() => window.RUTAB.perfil().puntos || 0);
+  // primera respuesta correcta para la captura con feedback
+  await page.evaluate(() => {
+    const tr = window.RUTAB.triviaEstado();
+    document.querySelectorAll("#tk-cartas .tk-carta")[tr.qs[tr.i].correcta].click();
+  });
+  await page.waitForSelector(".tk-carta.ok");
+  await shot("trivia");
+  // resto de la ronda, siempre con la correcta → 10/10
+  for (let i = 1; i < 10; i++) {
+    await page.waitForSelector(".tk-carta:not([disabled])", { timeout: 5000 });
+    await page.evaluate(() => {
+      const tr = window.RUTAB.triviaEstado();
+      document.querySelectorAll("#tk-cartas .tk-carta")[tr.qs[tr.i].correcta].click();
+    });
+    await page.waitForTimeout(950);
+  }
+  await page.waitForSelector("#tr-otra", { timeout: 8000 });
+  const finTrivia = await page.evaluate(() => ({
+    texto: document.body.textContent.includes("10/10") || document.body.textContent.includes("¡Nuevo récord!"),
+    mejor: (window.RUTAB.perfil().trivia || {}).mejor,
+    puntos: window.RUTAB.perfil().puntos || 0
+  }));
+  chk("trivia: ronda perfecta 10/10 con récord y puntos", finTrivia.texto && finTrivia.mejor === 10 && finTrivia.puntos > puntosAntes, JSON.stringify(finTrivia));
+
+  // 7. plan de estudio: examen en 2 días → 2 simulacros (el caso pedido por el usuario)
+  await page.goto("http://127.0.0.1:8940/#/plan"); await page.waitForSelector("#plan-crear");
+  const fechaExamen = await page.evaluate(() => {
+    const d = new Date(); d.setDate(d.getDate() + 2);
+    const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    document.getElementById("plan-fecha").value = v;
+    document.querySelectorAll("#plan-dias .plan-diachip").forEach(b => { b.classList.add("activa"); });
+    return v;
+  });
+  await page.click("#plan-crear");
+  await page.waitForSelector("#plan-ics");
+  const plan = await page.evaluate(() => ({
+    titulo: document.querySelector("h1").textContent,
+    sims: [...document.querySelectorAll(".plan-dia")].filter(f => f.textContent.includes("Simulacro completo")).length,
+    dias: document.querySelectorAll(".plan-dia").length
+  }));
+  chk("plan: examen en 2 días → hoy y mañana son simulacros completos", plan.titulo.includes("Faltan 2 días") && plan.dias === 2 && plan.sims === 2, JSON.stringify(plan));
+  await shot("plan");
+  const [descarga] = await Promise.all([page.waitForEvent("download"), page.click("#plan-ics")]);
+  const icsPath = await descarga.path();
+  const ics = fs.readFileSync(icsPath, "utf8");
+  chk("plan: el .ics trae los eventos con alarma y el día del examen",
+    ics.includes("BEGIN:VCALENDAR") && (ics.match(/BEGIN:VALARM/g) || []).length === 3 && ics.includes("Examen teórico Clase B") && ics.includes("Simulacro completo"), (ics.match(/BEGIN:VEVENT/g) || []).length + " eventos");
+  await page.goto("http://127.0.0.1:8940/#/home"); await page.waitForTimeout(250);
+  const homePlan = await page.evaluate(() => document.body.textContent);
+  chk("home: la sesión del día obedece al plan", homePlan.includes("faltan 2 días para el examen") && homePlan.includes("Según tu plan"), "");
+
+  // 8. progreso y configuración
   await page.goto("http://127.0.0.1:8940/#/progreso"); await page.waitForTimeout(300); await shot("progreso");
   await page.goto("http://127.0.0.1:8940/#/configuracion"); await page.waitForTimeout(300);
   const acerca = await page.evaluate(() => document.body.textContent.includes("Acerca de Toma el Volante"));
   chk("configuración: 'Acerca de Toma el Volante'", acerca);
   const sinRutaB = await page.evaluate(() => !document.body.textContent.includes("Ruta B"));
   chk("configuración: sin rastro visible de 'Ruta B'", sinRutaB);
+  const cerrarAcceso = await page.evaluate(() => document.body.textContent.includes("Cerrar acceso al sitio"));
+  chk("configuración: botón para cerrar el acceso del sitio", cerrarAcceso);
   await shot("configuracion");
 
   // 7. móvil
@@ -142,6 +314,10 @@ function chk(nombre, ok, extra) {
   mp.on("console", m => { if (m.type() === "error") errores.push("MOVIL: " + m.text()); });
   mp.on("pageerror", e => errores.push("MOVIL PAGEERROR: " + e.message));
   await mp.goto("http://127.0.0.1:8940/");
+  await mp.fill("#inp-usuario", USUARIO);
+  await mp.fill("#inp-clave", CLAVE);
+  await mp.click("#btn-entrar");
+  await mp.waitForURL(u => u.pathname === "/", { timeout: 8000 });
   await mp.fill("#inp-nombre", "Andrés");
   await mp.click("#form-perfil button[type=submit]");
   await mp.waitForSelector(".topbar");
@@ -165,7 +341,18 @@ function chk(nombre, ok, extra) {
   await pp.screenshot({ path: path.join(ENT, "portada_presentacion_toma_el_volante.jpg"), type: "jpeg", quality: 88 });
   await pp.close();
 
-  chk("0 errores de consola/página en todo el recorrido", errores.length === 0, errores.slice(0, 4).join(" || "));
+  // 9. salir de la sesión
+  await page.goto("http://127.0.0.1:8940/api/salir");
+  chk("salir: limpia la sesión y vuelve a la puerta", page.url().includes("/acceso.html"), page.url());
+  const trasSalir = await page.evaluate(() => fetch("/app_toma_el_volante.js").then(r => r.status));
+  chk("salir: los recursos quedan cerrados de nuevo", trasSalir === 401, String(trasSalir));
+
+  /* Los 401 de las pruebas NEGATIVAS de la puerta (fetch deliberado sin sesión)
+     aparecen como errores de consola del navegador: son esperados. Cualquier
+     otro fallo de recurso sí rompe la verificación (y además rompería los
+     checks funcionales anteriores). */
+  const erroresReales = errores.filter(e => !/status of 401/.test(e));
+  chk("0 errores de consola/página en todo el recorrido", erroresReales.length === 0, erroresReales.slice(0, 4).join(" || "));
   await browser.close(); server.close();
   console.log(`\nRESULTADO: ${pasa}/${pasa + falla} PASS${falla ? " — " + falla + " FALLAS" : ""}`);
   process.exit(falla ? 1 : 0);

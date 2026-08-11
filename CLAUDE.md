@@ -14,7 +14,7 @@ propio es la ÚNICA casa del proyecto.
 SPA 100% estática SIN backend, sin build, sin dependencias en ejecución. Tres archivos en la
 **raíz del repo**: `index.html` (tokens + **Roboto 400/500/600 embebida en base64**: funciona
 con doble clic sin internet), `app_toma_el_volante.js` (motor: router hash `#/login #/home
-#/estudiar #/repaso #/simulacro #/senales #/progreso #/configuracion`, perfiles, quiz, Leitner,
+#/estudiar #/repaso #/simulacro #/senales #/trivia #/plan #/progreso #/configuracion`, perfiles, quiz, Leitner,
 simulacro, señales SVG, progreso, CSV, respaldo) y `datos_toma_el_volante.js` (banco GENERADO,
 no editar a mano). Progreso en localStorage por perfil.
 - **Claves internas históricas — NO renombrar** (se pierde el avance guardado): localStorage
@@ -48,7 +48,7 @@ no editar a mano). Progreso en localStorage por perfil.
 - **RB-006 (corrección dura del usuario): NUNCA azul sobre azul** — sobre superficies navy,
   toda caja va en fondo sólido claramente distinto (blanco); nada de navy-d ni translúcidos
   como fondo de caja. El arnés E2E lo asevera.
-- Decisiones RB-001..006 en `DECISIONES-VISUALES.md` (leerlas antes de proponer cambios).
+- Decisiones RB-001..010 en `DECISIONES-VISUALES.md` (leerlas antes de proponer cambios).
 
 ## Acuerdos de trabajo
 1. Trabajar en `main` de ESTE repo (git push origin HEAD:main).
@@ -60,7 +60,31 @@ no editar a mano). Progreso en localStorage por perfil.
 3. Capturas de entregables en `entregables/` (regenerarlas si cambia la UI) + mostrar al usuario.
 4. Cambios de interfaz/layout: mockup primero, aprobación del usuario, luego implementar.
 
+## Seguridad del sitio publicado (v1.2 — no rehacer)
+- **Puerta en el borde**: `functions/_middleware.js` — sin cookie válida no se sirve NINGÚN
+  archivo (redirige a `/acceso.html`; recursos → 401). `POST /api/acceso` valida correo +
+  contraseña contra hash **PBKDF2-SHA256 100k** en `functions/api/_config.js` (NUNCA la
+  contraseña: el repo es público) y emite cookie HMAC HttpOnly 30 días. `GET /api/salir`
+  cierra. Cambio de clave: `verificacion/generar_acceso.html` (doble clic, genera el bloque
+  para pegar en GitHub). Refuerzo recomendado: env `JWT_SECRET` en Pages (sin ella la firma
+  se deriva del hash: cierra a extraños, pero un lector del repo podría forjar cookies).
+- La copia local con doble clic NO pasa por la puerta (functions solo corren en Cloudflare).
+- El arnés ejecuta el middleware REAL (copias .mjs temporales); credenciales reales por env
+  `TEV_USUARIO`/`TEV_CLAVE` (sin ellas usa credenciales de prueba generadas al vuelo).
+
+## Funciones v1.2 (no rehacer)
+- **Trivia de señales** (#/trivia, RB-007): señal grande + 4 tarjetas de color con formas
+  (maqueta Kahoot del usuario). `P.trivia` {jugadas, mejor, mejorRacha}; puntos+racha sobrios.
+  Botón principal de Señales la lanza; el quiz de texto del anexo sigue en Estudiar.
+- **Fichas claras + avance** (RB-008): ficha blanca editorial; `P.fichasLeidas` persistente,
+  contador/barra en capítulo, puntitos turquesa, conteo en parrilla.
+- **Mi plan** (#/plan, RB-009): P.plan {examen, hora, dias[getDay], creado}; plan calculado EN
+  VIVO (`tareaDelDia`: últimos 2 días de estudio = simulacros; antes capítulos con dominio<85).
+  Home obedece al plan (`tareaDeHoy`). Recordatorios `.ics` con VALARM (`icsDelPlan`). Correo
+  directo = fase 2 (Worker+Resend), no simulado.
+
 ## Estado
-v1.1 (11-ago-2026): rebrand completo + corrección RB-006, verificado 18/18 PASS. Pendientes:
-conectar Cloudflare Pages + subdominio; posible mejora móvil de la tarjeta "Hoy te toca"
-(texto angosto junto al botón — pre-existente, requiere mockup).
+v1.2 (11-ago-2026): seguridad de sitio + trivia + fichas claras/avance + plan con .ics,
+verificado **35/35 PASS**. v1.1: rebrand + RB-006. Pendientes: elección del usuario entre las
+3 propuestas de rediseño estructural (P5, regla [16]); si elige, implementarla completa;
+correo directo de recordatorios (fase 2 opcional); mejora móvil "Hoy te toca" (pre-existente).

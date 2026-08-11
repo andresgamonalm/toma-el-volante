@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambiar contraseña · Toma el Volante</title>
+<style>
+:root{--navy:#040764;--azul:#1C73CB;--gris-m:#545454;--r:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Roboto,system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#12173d;background:#f5f5f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.caja{background:#fff;border-radius:var(--r);padding:34px;max-width:640px;width:100%;display:flex;flex-direction:column;gap:18px}
+h1{font-size:22px;color:var(--navy)}
+p{font-size:14.5px;line-height:1.55;color:var(--gris-m)}
+label{font-size:13.5px;font-weight:600;color:var(--navy);display:block;margin-bottom:6px}
+input{width:100%;font:inherit;font-size:15px;padding:11px 13px;border:1px solid #cfd6e4;border-radius:var(--r)}
+input:focus{outline:2px solid var(--azul);outline-offset:1px}
+button{font:inherit;font-size:15px;font-weight:600;min-height:44px;border:0;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;padding:0 22px}
+button:hover{background:#04065A}
+textarea{width:100%;font:13px/1.5 ui-monospace,Consolas,monospace;padding:12px;border:1px solid #cfd6e4;border-radius:var(--r);min-height:230px;background:#f8f9fc;color:#12173d}
+ol{padding-left:20px;font-size:14px;color:var(--gris-m);display:flex;flex-direction:column;gap:6px}
+.ok{color:#0D7332;font-size:14px;font-weight:600;display:none}
+</style>
+</head>
+<body>
+<main class="caja">
+  <h1>Cambiar la contraseña del sitio</h1>
+  <p>Esta herramienta funciona con doble clic, sin internet, y NUNCA guarda ni envía la contraseña: solo calcula su huella (hash) para el archivo de acceso.</p>
+  <div><label for="inp-correo">Correo de acceso</label><input id="inp-correo" type="email" value="hola@andresgamonal.com"></div>
+  <div><label for="inp-nueva">Nueva contraseña</label><input id="inp-nueva" type="text" autocomplete="off" placeholder="Escríbela aquí"></div>
+  <button id="btn-generar">Generar bloque de acceso</button>
+  <div id="salida" style="display:none">
+    <label for="txt-bloque">Bloque generado</label>
+    <textarea id="txt-bloque" readonly></textarea>
+    <p class="ok" id="msg-copiado">Copiado al portapapeles ✓</p>
+    <ol>
+      <li>Pulsa dentro del cuadro y copia todo (o usa el botón de abajo).</li>
+      <li>Abre en GitHub el archivo <b>functions/api/_config.js</b> del repositorio <b>toma-el-volante</b> y pulsa el lápiz (Editar).</li>
+      <li>Reemplaza TODO el contenido por el bloque copiado y guarda (Commit changes).</li>
+      <li>En 1-2 minutos el sitio pedirá la contraseña nueva. Las sesiones abiertas con la anterior se cierran solas.</li>
+    </ol>
+    <button id="btn-copiar" type="button">Copiar bloque</button>
+  </div>
+</main>
+<script>
+(function(){
+  "use strict";
+  var ITER = 100000, DIAS = 30;
+  function hex(buf){ return [].map.call(new Uint8Array(buf), function(b){ return b.toString(16).padStart(2,"0"); }).join(""); }
+  document.getElementById("btn-generar").addEventListener("click", function(){
+    var correo = document.getElementById("inp-correo").value.trim().toLowerCase();
+    var clave = document.getElementById("inp-nueva").value;
+    if(!correo || clave.length < 8){ alert("Escribe el correo y una contraseña de al menos 8 caracteres."); return; }
+    var sal = hex(crypto.getRandomValues(new Uint8Array(16)).buffer);
+    var enc = new TextEncoder();
+    crypto.subtle.importKey("raw", enc.encode(clave), "PBKDF2", false, ["deriveBits"]).then(function(k){
+      return crypto.subtle.deriveBits({ name:"PBKDF2", hash:"SHA-256", salt:enc.encode(sal), iterations:ITER }, k, 256);
+    }).then(function(bits){
+      var bloque =
+'/* Acceso al sitio publicado (Cloudflare Pages).\n' +
+'   Aquí NUNCA va la contraseña: solo su hash PBKDF2-SHA256 con sal.\n' +
+'   Para cambiarla: verificacion/generar_acceso.html (doble clic) y pegar aquí\n' +
+'   el bloque generado, editando este archivo en GitHub. Deploy: 1-2 min.\n' +
+'   Refuerzo opcional: variable JWT_SECRET en Pages (Settings → Environment\n' +
+'   variables) con un texto largo aleatorio. */\n' +
+'export const ACCESO = {\n' +
+'  usuario: "' + correo + '",\n' +
+'  sal: "' + sal + '",\n' +
+'  hash: "' + hex(bits) + '",\n' +
+'  iteraciones: ' + ITER + ',\n' +
+'  diasSesion: ' + DIAS + '\n' +
+'};\n';
+      document.getElementById("txt-bloque").value = bloque;
+      document.getElementById("salida").style.display = "block";
+    });
+  });
+  document.getElementById("btn-copiar").addEventListener("click", function(){
+    var t = document.getElementById("txt-bloque");
+    t.select();
+    var listo = function(){ document.getElementById("msg-copiado").style.display = "block"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t.value).then(listo, function(){ document.execCommand("copy"); listo(); });
+    } else { document.execCommand("copy"); listo(); }
+  });
+})();
+</script>
+</body>
+</html>

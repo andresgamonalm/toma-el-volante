@@ -38,6 +38,7 @@ var ICONOS = {
   repaso:'<path d="M3 12a9 9 0 1 0 2.6-6.3"/><path d="M3 3v6h6"/>',
   crono:'<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v4l2.5 1.5"/><path d="M9.5 2.5h5"/><path d="M12 2.5V6"/>',
   senal:'<path d="M12 2 22 12 12 22 2 12z"/><path d="M9.5 14.5c1-3 4-5 5.5-5"/>',
+  trivia:'<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
   grafico:'<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/>',
   config:'<circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.15-1.44l2.12-1.64-2-3.46-2.49 1a7 7 0 0 0-2.49-1.44L13.5 2.5h-3l-.49 2.52a7 7 0 0 0-2.49 1.44l-2.49-1-2 3.46 2.12 1.64A7 7 0 0 0 5 12c0 .49.05.97.15 1.44l-2.12 1.64 2 3.46 2.49-1a7 7 0 0 0 2.49 1.44l.49 2.52h3l.49-2.52a7 7 0 0 0 2.49-1.44l2.49 1 2-3.46-2.12-1.64c.1-.47.15-.95.15-1.44z"/>',
   llama:'<path d="M12 22c4.4 0 7.5-3 7.5-7.2 0-3.1-1.9-5-3.4-6.8C14.7 6.4 14 4.5 14 2c-3.4 1.6-5 4.3-5 6.8 0 1.2.3 2 .3 2S7.6 10 7.6 7.9C5.9 9.5 4.5 11.9 4.5 14.8 4.5 19 7.6 22 12 22z"/>',
@@ -95,11 +96,18 @@ var P = null; // datos del perfil activo
 function perfilActivo(){ if(!ROOT.activo) return null; for(var i=0;i<ROOT.perfiles.length;i++) if(ROOT.perfiles[i].id===ROOT.activo) return ROOT.perfiles[i]; return null; }
 function perfilNuevoDatos(){
   return { cfg:{ timer20:true, sonido:true, fzGrande:false, meta:20 },
-           prog:{}, sims:[], sesiones:[], puntos:0, racha:{ ult:"", dias:0 }, ultCap:null };
+           prog:{}, sims:[], sesiones:[], puntos:0, racha:{ ult:"", dias:0 }, ultCap:null,
+           fichasLeidas:{}, trivia:{ jugadas:0, mejor:0, mejorRacha:0 }, plan:null };
 }
 function cargarPerfil(id){
-  try{ var d = JSON.parse(localStorage.getItem(LS_ROOT+":p:"+id)); if(d && d.cfg) { if(d.cfg.meta==null) d.cfg.meta=20; return d; } }catch(e){}
+  try{ var d = JSON.parse(localStorage.getItem(LS_ROOT+":p:"+id)); if(d && d.cfg) { if(d.cfg.meta==null) d.cfg.meta=20; if(!d.fichasLeidas) d.fichasLeidas={}; return d; } }catch(e){}
   return perfilNuevoDatos();
+}
+function fichasDe(capId){ return DATA.fichas.filter(function(f){ return String(f.capitulo)===String(capId); }); }
+function fichasLeidasDe(capId){
+  var n = 0, total = fichasDe(capId).length;
+  for(var i=0; i<total; i++){ if(P.fichasLeidas[capId+":"+i]) n++; }
+  return n;
 }
 function persistir(){ if(!ROOT.activo) return; try{ localStorage.setItem(LS_ROOT+":p:"+ROOT.activo, JSON.stringify(P)); }catch(e){ toast("No se pudo guardar el avance"); } }
 function perfilCfg(){ return (P && P.cfg) || { timer20:true, sonido:true, fzGrande:false, meta:20 }; }
@@ -171,8 +179,8 @@ function render(){
   document.body.classList.toggle("fz-grande", !!(P && P.cfg.fzGrande));
   if(r.v==="login") return vLogin();
   var shellV = { home:vHome, estudiar:(r.arg? function(){vCapitulo(r.arg);} : vEstudiar),
-                 repaso:vRepaso, simulacro:vSimulacro, senales:vSenales,
-                 progreso:vProgreso, configuracion:vConfig };
+                 repaso:vRepaso, simulacro:vSimulacro, senales:vSenales, trivia:vTrivia,
+                 plan:vPlan, progreso:vProgreso, configuracion:vConfig };
   (shellV[r.v]||vHome)();
 }
 
@@ -272,6 +280,147 @@ function activarPerfil(id){
   render();
 }
 
+/* ---------- plan de estudio con recordatorios (P4) ----------
+   El plan se calcula EN VIVO desde la fecha del examen + días elegidos + el
+   estado real de dominio: capítulos pendientes primero, y los últimos 2 días
+   de estudio son simulacros completos. Los recordatorios salen como .ics con
+   alarma (Google/Outlook/Apple Calendar); un correo a hora exacta requeriría
+   un servidor despierto y este aplicativo es 100% estático a propósito. */
+var DIAS_SEM = [["Lu",1],["Ma",2],["Mi",3],["Ju",4],["Vi",5],["Sá",6],["Do",0]];
+function fechaDeStr(s){ var p = String(s).split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function diasHastaExamen(){ if(!P.plan) return null; return Math.round((fechaDeStr(P.plan.examen) - fechaDeStr(hoyStr()))/86400000); }
+function diasDeEstudio(){
+  if(!P.plan) return [];
+  var lista = [], ex = fechaDeStr(P.plan.examen);
+  for(var d = fechaDeStr(hoyStr()); d < ex; d.setDate(d.getDate()+1)){
+    if(P.plan.dias.indexOf(d.getDay()) !== -1) lista.push(new Date(d));
+  }
+  return lista;
+}
+function capsPendientes(){ return DATA.capitulos.filter(function(c){ return dominioCap(c.id) < 85; }); }
+function tareaDelDia(idx, total){
+  if(total - 1 - idx <= 1){
+    return { titulo:"Simulacro completo del examen", detalle:"35 preguntas · 45 minutos, igual al real. Después revisa tus incorrectas una a una.", ruta:"#/simulacro" };
+  }
+  var pend = capsPendientes();
+  if(!pend.length) return { titulo:"Repaso inteligente + trivia de señales", detalle:"Mantén fino lo aprendido: el repaso del día y una ronda de trivia.", ruta:"#/repaso" };
+  var cap = pend[idx % pend.length];
+  return { titulo:(cap.id==="senales"? "Anexo · " : "Capítulo "+cap.id+" · ")+cap.label,
+           detalle:"Fichas + micro-quiz de 10. Suma el repaso inteligente si hay pendientes.",
+           ruta:"#/estudiar/"+cap.id };
+}
+function tareaDeHoy(){
+  var dias = diasDeEstudio(); if(!dias.length) return null;
+  for(var i=0;i<dias.length;i++){ if(hoyStr(dias[i])===hoyStr()) return { tarea:tareaDelDia(i, dias.length), idx:i, total:dias.length }; }
+  return null;
+}
+function icsTexto(s){ return String(s).replace(/\\/g,"\\\\").replace(/[,;]/g, function(m){ return "\\"+m; }); }
+function icsFecha(d){
+  var p2 = function(n){ return String(n).padStart(2,"0"); };
+  return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"T"+p2(d.getHours())+p2(d.getMinutes())+"00";
+}
+function icsDelPlan(){
+  var dias = diasDeEstudio();
+  var hhmm = (P.plan.hora||"19:00").split(":");
+  var L = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Gamonal//Toma el Volante//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
+  dias.forEach(function(d, i){
+    var t = tareaDelDia(i, dias.length);
+    var ini = new Date(d); ini.setHours(+hhmm[0]||19, +hhmm[1]||0, 0, 0);
+    var fin = new Date(ini.getTime() + 30*60000);
+    L.push("BEGIN:VEVENT",
+      "UID:tev-"+hoyStr(d)+"@tomaelvolante",
+      "DTSTAMP:"+icsFecha(new Date()),
+      "DTSTART:"+icsFecha(ini),
+      "DTEND:"+icsFecha(fin),
+      "SUMMARY:"+icsTexto("Toma el Volante · "+t.titulo),
+      "DESCRIPTION:"+icsTexto(t.detalle),
+      "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsTexto("Hora de entrenar: "+t.titulo),"TRIGGER:-PT0M","END:VALARM",
+      "END:VEVENT");
+  });
+  L.push("BEGIN:VEVENT",
+    "UID:tev-examen-"+P.plan.examen+"@tomaelvolante",
+    "DTSTAMP:"+icsFecha(new Date()),
+    "DTSTART;VALUE=DATE:"+P.plan.examen.replace(/-/g,""),
+    "SUMMARY:"+icsTexto("Examen teórico Clase B — a aprobarlo a la primera"),
+    "DESCRIPTION:"+icsTexto("Llega descansado. La víspera: repaso corto de tus débiles y a dormir temprano."),
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Examen teórico mañana","TRIGGER:-P1D","END:VALARM",
+    "END:VEVENT","END:VCALENDAR");
+  return L.join("\r\n");
+}
+function vPlan(){
+  if(!P.plan){ formPlan(); return; }
+  var dias = diasDeEstudio(), faltan = diasHastaExamen();
+  var filas = dias.slice(0, 14).map(function(d, i){
+    var t = tareaDelDia(i, dias.length);
+    var esHoy = hoyStr(d)===hoyStr();
+    return '<div class="plan-dia'+(esHoy?" hoy-si":"")+'">'+
+      '<div class="plan-fecha"><b>'+d.toLocaleDateString("es-CL",{weekday:"short"})+'</b><span>'+d.toLocaleDateString("es-CL",{day:"numeric",month:"short"})+'</span>'+(esHoy?'<span class="chip chip-curso" style="margin-top:4px">Hoy</span>':'')+'</div>'+
+      '<div class="crece"><b>'+esc(t.titulo)+'</b><span class="sub" style="display:block;font-size:13.5px">'+esc(t.detalle)+'</span></div>'+
+      '<a class="btn btn-sec" href="'+t.ruta+'">Ir</a>'+
+    '</div>';
+  }).join("");
+  shell(
+    '<div style="max-width:800px;margin:0 auto">'+
+    '<div class="sec-head"><div><span class="eyebrow">Mi plan de estudio</span>'+
+    '<h1 style="font-size:26px;margin-top:4px">'+(faltan>0? "Faltan "+faltan+" "+plural(faltan,"día","días")+" para tu examen" : (faltan===0? "¡Tu examen es HOY!" : "Tu examen ya pasó"))+'</h1>'+
+    '<p class="sub">Examen: '+fechaDeStr(P.plan.examen).toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"})+' · sesiones a las '+esc(P.plan.hora)+'</p></div>'+
+    '<button class="btn btn-pri" id="plan-ics">'+ico("descarga")+'Recordatorios al calendario</button></div>'+
+    (dias.length? '<div class="plan-lista">'+filas+(dias.length>14? '<p class="sub" style="font-size:13px">… y '+(dias.length-14)+' días más hasta el examen.</p>':'')+'</div>'
+                : '<p class="sub">Con los días elegidos no quedan sesiones antes del examen. Ajusta tu plan.</p>')+
+    '<div class="fila" style="margin-top:16px;gap:18px;flex-wrap:wrap">'+
+      '<button class="btn btn-ter" id="plan-cambiar" style="padding-left:0">Ajustar plan</button>'+
+      '<button class="btn btn-ter" id="plan-borrar" style="color:var(--magenta)">Eliminar plan</button>'+
+    '</div>'+
+    (faltan>0? '<p class="sub" style="font-size:12.5px;margin-top:10px">El archivo .ics agrega cada sesión CON alarma a Google Calendar, Outlook o Apple Calendar: tu calendario te la recuerda en el teléfono o por correo, según cómo lo tengas configurado. Si cambias el plan, descárgalo de nuevo.</p>':'')+
+    '</div>'
+  );
+  document.getElementById("plan-ics").addEventListener("click", function(){
+    descargar("toma_el_volante_plan_"+P.plan.examen+".ics", icsDelPlan(), "text/calendar;charset=utf-8");
+    toast("Plan descargado: ábrelo y tu calendario agenda los recordatorios");
+  });
+  document.getElementById("plan-cambiar").addEventListener("click", formPlan);
+  document.getElementById("plan-borrar").addEventListener("click", function(){
+    modal("¿Eliminar tu plan?", "Se borra el plan y sus tareas del Inicio (tu avance de estudio no se toca).", "Eliminar", function(){ P.plan = null; persistir(); vPlan(); });
+  });
+}
+function formPlan(){
+  var man = new Date(); man.setDate(man.getDate()+1);
+  var p = P.plan || { examen:"", hora:"19:00", dias:[1,2,3,4,5] };
+  shell(
+    '<div style="max-width:640px;margin:0 auto">'+
+    '<span class="eyebrow">Mi plan de estudio</span>'+
+    '<h1 style="font-size:26px;margin:6px 0 6px">¿Cuándo rindes el examen?</h1>'+
+    '<p class="sub" style="margin-bottom:16px">Con la fecha armo tu plan día a día: capítulos pendientes primero y simulacros completos en la recta final. Lo verás aquí y en el Inicio, y te lo llevas al calendario con recordatorios.</p>'+
+    '<section class="card" style="display:grid;gap:16px">'+
+      '<div class="campo"><label for="plan-fecha">Fecha del examen</label><input type="date" id="plan-fecha" min="'+hoyStr(man)+'" value="'+esc(p.examen)+'"></div>'+
+      '<div class="campo"><label for="plan-hora">Hora a la que sueles estudiar</label><input type="time" id="plan-hora" value="'+esc(p.hora)+'"></div>'+
+      '<div class="campo"><label>Días de estudio</label><div class="plan-dias-form" id="plan-dias">'+
+        DIAS_SEM.map(function(ds){ return '<button type="button" class="plan-diachip'+(p.dias.indexOf(ds[1])!==-1?" activa":"")+'" data-d="'+ds[1]+'" aria-pressed="'+(p.dias.indexOf(ds[1])!==-1)+'">'+ds[0]+'</button>'; }).join("")+
+      '</div></div>'+
+      '<button class="btn btn-pri" id="plan-crear">'+(P.plan? "Guardar cambios":"Crear mi plan")+'</button>'+
+    '</section>'+
+    (P.plan? '<button class="btn btn-ter" id="plan-volver" style="margin-top:10px;padding-left:0">Volver al plan</button>' : "")+
+    '</div>'
+  );
+  document.querySelectorAll("#plan-dias .plan-diachip").forEach(function(b){
+    b.addEventListener("click", function(){
+      b.classList.toggle("activa");
+      b.setAttribute("aria-pressed", b.classList.contains("activa")? "true":"false");
+    });
+  });
+  document.getElementById("plan-crear").addEventListener("click", function(){
+    var fecha = document.getElementById("plan-fecha").value;
+    var dias = [].map.call(document.querySelectorAll("#plan-dias .activa"), function(b){ return +b.getAttribute("data-d"); });
+    if(!fecha || fechaDeStr(fecha) <= fechaDeStr(hoyStr())){ toast("Elige una fecha de examen futura"); return; }
+    if(!dias.length){ toast("Marca al menos un día de estudio"); return; }
+    P.plan = { examen:fecha, hora:document.getElementById("plan-hora").value||"19:00", dias:dias, creado:Date.now() };
+    persistir(); toast("Plan creado: síguelo desde el Inicio");
+    vPlan();
+  });
+  var volver = document.getElementById("plan-volver");
+  if(volver) volver.addEventListener("click", vPlan);
+}
+
 /* ---------- vista: home ---------- */
 function vHome(){
   var per = perfilActivo();
@@ -291,6 +440,20 @@ function vHome(){
     hoyTxt = "Dominaste el banco completo. Mantente fino con un simulacro fiel al examen real.";
     hoyCta = "Hacer un simulacro"; hoyHash = "#/simulacro";
   }
+  var eyebrowHoy = "Tu sesión de hoy";
+  if(P.plan){
+    var faltan = diasHastaExamen();
+    var planHoy = tareaDeHoy();
+    eyebrowHoy = faltan>0? "Tu plan · faltan "+faltan+" "+plural(faltan,"día","días")+" para el examen"
+               : (faltan===0? "Tu plan · ¡el examen es HOY!" : "Tu plan · examen rendido");
+    if(planHoy){
+      hoyTxt = "Según tu plan, hoy: <b style=\"color:var(--amarillo)\">"+esc(planHoy.tarea.titulo)+"</b>. "+esc(planHoy.tarea.detalle);
+      hoyCta = "Partir ahora"; hoyHash = planHoy.tarea.ruta;
+    } else if(faltan>0 && venc.length===0){
+      hoyTxt = "Hoy no es día de estudio en tu plan. Si igual quieres avanzar, una ronda de trivia no rompe el descanso.";
+      hoyCta = "Trivia de señales"; hoyHash = "#/trivia";
+    }
+  }
   shell(
     '<div class="home-head"><h1>Hola, '+esc(per.nombre)+'</h1>'+
     '<span class="sub">'+new Date().toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"})+'</span></div>'+
@@ -300,9 +463,10 @@ function vHome(){
       '<div class="stat s-turq"><div class="num">'+(mejor||"—")+(mejor?'<small>/'+DATA.examen.puntajeMax+'</small>':'')+'</div><div class="lbl">'+ico("trofeo")+'Mejor simulacro</div></div>'+
       '<div class="stat"><div class="num">'+(P.puntos||0)+'</div><div class="lbl">'+ico("estrella")+'Puntos de entrenamiento</div></div>'+
     '</div>'+
-    '<section class="hoy"><div class="crece"><span class="eyebrow" style="color:var(--turq-c)">Tu sesión de hoy</span>'+
+    '<section class="hoy"><div class="crece"><span class="eyebrow" style="color:var(--turq-c)">'+eyebrowHoy+'</span>'+
       '<h2>Hoy te toca</h2><p>'+hoyTxt+'</p></div>'+
-      '<a class="btn btn-amarillo" href="'+hoyHash+'">'+hoyCta+'</a></section>'+
+      '<div class="hoy-der"><a class="btn btn-amarillo" href="'+hoyHash+'">'+hoyCta+'</a>'+
+      '<a class="hoy-plan" href="#/plan">'+(P.plan? "Ajustar mi plan":"Crear mi plan de estudio")+'</a></div></section>'+
     '<div class="listo"><span class="semaforo" style="background:'+listo.color+'"></span>'+
       '<div class="crece"><b>'+listo.txt+'</b><span class="sub" style="display:block;font-size:13.5px">'+listo.det+'</span></div></div>'+
     '<h2 style="font-size:18px;margin:0 0 12px">¿Qué quieres hacer?</h2>'+
@@ -311,6 +475,7 @@ function vHome(){
       '<a class="lanz" href="#/repaso"><span class="ico-caja ic-turq">'+ico("repaso")+'</span><b>Repaso inteligente</b><span>'+(venc.length? venc.length+" "+plural(venc.length,"pregunta pendiente","preguntas pendientes")+" hoy." : "Las preguntas que falles volverán aquí en el momento justo.")+'</span></a>'+
       '<a class="lanz" href="#/simulacro"><span class="ico-caja ic-navy">'+ico("crono")+'</span><b>Simulacro del examen</b><span>35 preguntas · 45 minutos · igual al examen real de CONASET.</span></a>'+
       '<a class="lanz" href="#/senales"><span class="ico-caja ic-ama">'+ico("senal")+'</span><b>Señales de tránsito</b><span>Galería del anexo oficial para reconocerlas de un vistazo.</span></a>'+
+      '<a class="lanz" href="#/trivia"><span class="ico-caja ic-mag">'+ico("trivia")+'</span><b>Trivia de señales</b><span>La señal grande y 4 tarjetas de color: adivina su nombre y suma racha.</span></a>'+
     '</div>'
   );
 }
@@ -325,12 +490,13 @@ function vEstudiar(){
   var cards = DATA.capitulos.map(function(c){
     var qs = preguntasDe(c.id), dom = dominioCap(c.id);
     var vistas = qs.filter(function(q){ return progDe(q.id); }).length;
-    var chip = dom>=85? '<span class="chip chip-dom">Dominado</span>' : (vistas? '<span class="chip chip-curso">En curso</span>' : '<span class="chip chip-nuevo">Nuevo</span>');
+    var totalF = fichasDe(c.id).length, leidas = totalF? fichasLeidasDe(c.id) : 0;
+    var chip = dom>=85? '<span class="chip chip-dom">Dominado</span>' : ((vistas || leidas)? '<span class="chip chip-curso">En curso</span>' : '<span class="chip chip-nuevo">Nuevo</span>');
     return '<a class="cap-card" href="#/estudiar/'+c.id+'">'+
       '<div class="fila"><span class="cap-num crece">'+(c.id==="senales"? "Anexo" : "Capítulo "+c.id)+'</span>'+chip+'</div>'+
       '<h3>'+esc(c.label)+'</h3>'+
       '<div class="barra"><i style="width:'+dom+'%"></i></div>'+
-      '<div class="cap-meta"><span>'+dom+'% de dominio</span><span>'+qs.length+' preguntas · pág. '+c.pagina+'</span></div>'+
+      '<div class="cap-meta"><span>'+dom+'% de dominio'+(totalF? ' · '+leidas+'/'+totalF+' fichas':'')+'</span><span>'+qs.length+' preguntas · pág. '+c.pagina+'</span></div>'+
     '</a>';
   }).join("");
   shell(
@@ -354,7 +520,9 @@ function vCapitulo(capId){
     '<a class="btn-ter" href="#/estudiar" style="display:inline-flex;align-items:center;gap:6px;padding-left:0">'+ico("flechaIzq")+'Todos los capítulos</a>'+
     '<div class="sec-head" style="margin-top:6px"><div><span class="eyebrow">'+(cap.id==="senales"? "Anexo oficial" : "Capítulo "+cap.id)+' · pág. '+cap.pagina+' del libro</span>'+
     '<h1 style="font-size:24px;margin-top:4px">'+esc(cap.label)+'</h1></div>'+
-    '<div style="min-width:190px"><div class="cap-meta" style="margin-bottom:5px"><span>Dominio</span><b style="color:var(--navy)">'+dom+'%</b></div><div class="barra b-navy"><i style="width:'+dom+'%"></i></div></div></div>'+
+    '<div style="min-width:190px"><div class="cap-meta" style="margin-bottom:5px"><span>Dominio</span><b style="color:var(--navy)">'+dom+'%</b></div><div class="barra b-navy"><i style="width:'+dom+'%"></i></div>'+
+    (fichas.length? '<div class="cap-meta" style="margin:9px 0 5px"><span>Fichas leídas</span><b style="color:var(--turq-o)" id="cap-fichas-num">0/'+fichas.length+'</b></div><div class="barra"><i id="cap-fichas-bar" style="width:0%;background:var(--turq)"></i></div>' : "")+
+    '</div></div>'+
     (fichas.length?
       '<section aria-label="Fichas de repaso">'+
       '<div id="ficha-cont"></div>'+
@@ -372,12 +540,21 @@ function vCapitulo(capId){
   if(fichas.length){
     var pintarFicha = function(){
       var f = fichas[fichaIdx];
+      var clave = cap.id+":"+fichaIdx;
+      if(!P.fichasLeidas[clave]){ P.fichasLeidas[clave] = Date.now(); persistir(); }
+      var leidas = fichasLeidasDe(cap.id);
+      var num = document.getElementById("cap-fichas-num"), bar = document.getElementById("cap-fichas-bar");
+      if(num){ num.textContent = leidas+"/"+fichas.length; }
+      if(bar){ bar.style.width = Math.round(100*leidas/fichas.length)+"%"; }
       document.getElementById("ficha-cont").innerHTML =
         '<article class="ficha" aria-live="polite"><span class="eyebrow">Ficha '+(fichaIdx+1)+' de '+fichas.length+' · '+esc(f.seccion||cap.label)+'</span>'+
         '<h3>'+esc(f.titulo)+'</h3><p>'+esc(f.texto)+'</p>'+
         (f.dato? '<span class="dato">'+esc(f.dato)+'</span>':"")+
         '<span class="pag">Libro CONASET, página '+f.pagina+'</span></article>';
-      var pts = fichas.map(function(_,i){ return '<button role="tab" aria-label="Ficha '+(i+1)+'" class="'+(i===fichaIdx?"activa":"")+'" data-f="'+i+'"></button>'; }).join("");
+      var pts = fichas.map(function(_,i){
+        var cls = (i===fichaIdx? "activa" : (P.fichasLeidas[cap.id+":"+i]? "leida" : ""));
+        return '<button role="tab" aria-label="Ficha '+(i+1)+'" class="'+cls+'" data-f="'+i+'"></button>';
+      }).join("");
       document.getElementById("ficha-pts").innerHTML = pts;
       document.querySelectorAll("#ficha-pts [data-f]").forEach(function(b){
         b.addEventListener("click", function(){ fichaIdx=+b.getAttribute("data-f"); pintarFicha(); });
@@ -934,7 +1111,7 @@ function vSenales(){
     '<div class="sec-head"><div><span class="eyebrow">Anexo 1 del libro oficial · página 149</span>'+
     '<h1 style="font-size:24px;margin-top:4px">Señales de tránsito</h1>'+
     '<p class="sub">Reglamentarias: obligan o prohíben. Preventivas: advierten un peligro. Informativas: orientan y guían.</p></div>'+
-    '<button class="btn btn-pri" id="sen-quiz">'+ico("flecha")+'Quiz de señales</button></div>'+
+    '<button class="btn btn-pri" id="sen-quiz">'+ico("trivia")+'Jugar la trivia</button></div>'+
     '<div class="filtros">'+filtros+'</div>'+
     '<div class="sen-grid">'+cards+'</div>'+
     '<p class="sub" style="margin-top:14px;font-size:12.5px">Representaciones esquemáticas propias, fieles a la señalización oficial descrita en el anexo del Libro para la Conducción en Chile.</p>'
@@ -942,10 +1119,136 @@ function vSenales(){
   document.querySelectorAll("[data-fam]").forEach(function(b){
     b.addEventListener("click", function(){ senFiltro = b.getAttribute("data-fam"); vSenales(); });
   });
-  document.getElementById("sen-quiz").addEventListener("click", function(){
-    var qs = preguntasDe("senales");
-    if(!qs.length){ toast("Aún no hay preguntas de señales"); return; }
-    iniciarQuiz({ tipo:"estudio", titulo:"Quiz de señales", capId:"senales", preguntas:seleccionMicroQuiz(qs,10), feedback:true, volverA:"#/senales" });
+  document.getElementById("sen-quiz").addEventListener("click", function(){ irA("#/trivia"); });
+}
+
+/* ---------- vista: trivia de señales (tarjetas de color, maqueta del usuario) ----------
+   Referencia estructural: trivias tipo Kahoot — 4 tarjetas de color con forma
+   (▲◆●■, apoyo para daltonismo). Colores de la paleta oficial: error #CF1717,
+   azul #1C73CB, advertencia #E8BA30 (contenido navy por contraste AA) y éxito
+   fuerte #0D7332. Sin premio por velocidad (RB-004): piensa lo que necesites. */
+var TR = null;
+var TK_CARTAS = [
+  { color:"tk-rojo", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2z" fill="currentColor"/></svg>' },
+  { color:"tk-azul", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 10-9 10L3 12z" fill="currentColor"/></svg>' },
+  { color:"tk-amarillo", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
+  { color:"tk-verde", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
+];
+function armarRondaTrivia(n){
+  var senales = DATA.senales||[];
+  var elegidas = shuffle(senales.slice()).slice(0, n);
+  return elegidas.map(function(s){
+    var mismas = shuffle(senales.filter(function(x){ return x.id!==s.id && x.familia===s.familia; }));
+    var otras = shuffle(senales.filter(function(x){ return x.id!==s.id && x.familia!==s.familia; }));
+    var distractores = mismas.concat(otras).slice(0,3).map(function(x){ return x.nombre; });
+    var opciones = shuffle([s.nombre].concat(distractores));
+    return { s:s, opciones:opciones, correcta:opciones.indexOf(s.nombre) };
+  });
+}
+function vTrivia(){
+  if(TR && !TR.fin){ pintarTrivia(); return; }
+  TR = null;
+  var t = P.trivia||{};
+  shell(
+    '<div style="max-width:760px;margin:0 auto">'+
+    '<span class="eyebrow">Trivia de señales · reconocimiento de un vistazo</span>'+
+    '<h1 style="font-size:26px;margin:6px 0 14px">¿Reconoces la señal? Toca su tarjeta</h1>'+
+    '<div class="card" style="display:grid;gap:14px">'+
+      '<div class="fila">'+ico("senal","")+'<span><b>10 señales al azar</b> del anexo oficial ('+(DATA.senales||[]).length+' en total).</span></div>'+
+      '<div class="fila">'+ico("trivia","")+'<span>Elige el nombre correcto entre <b>4 tarjetas de color</b>, como en las trivias. Feedback al instante.</span></div>'+
+      '<div class="fila">'+ico("llama","")+'<span>Suma <b>puntos y racha</b>. Sin premio por velocidad: piensa lo que necesites.</span></div>'+
+    '</div>'+
+    (t.jugadas? '<p class="sub" style="margin-top:10px">Llevas '+t.jugadas+' '+plural(t.jugadas,"ronda","rondas")+'. Tu récord: <b style="color:var(--navy)">'+(t.mejor||0)+'/10</b>.</p>' : "")+
+    '<div class="fila" style="margin-top:18px;gap:12px;flex-wrap:wrap">'+
+      '<button class="btn btn-pri" id="tr-partir" style="font-size:17px;padding:12px 28px">'+ico("flecha")+'Partir la trivia</button>'+
+      '<a class="btn btn-ter" href="#/senales">Ver la galería primero</a>'+
+    '</div></div>'
+  );
+  document.getElementById("tr-partir").addEventListener("click", function(){
+    TR = { qs: armarRondaTrivia(10), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
+    pintarTrivia();
+  });
+}
+function pintarTrivia(){
+  if(TR.i >= TR.qs.length){ finalizarTrivia(); return; }
+  var it = TR.qs[TR.i];
+  var cartas = it.opciones.map(function(op, i){
+    var k = TK_CARTAS[i];
+    return '<button class="tk-carta '+k.color+'" data-op="'+i+'"><span class="tk-forma">'+k.forma+'</span><span class="tk-nombre">'+esc(op)+'</span></button>';
+  }).join("");
+  shell(
+    '<div class="quiz-top">'+
+      '<button class="btn-ter" id="tr-salir" style="padding-left:0">'+ico("salir")+'Salir</button>'+
+      '<div class="quiz-prog crece"><div class="fila" style="justify-content:space-between;font-size:13.5px;color:var(--gris-m);margin-bottom:4px"><span>Señal '+(TR.i+1)+' de '+TR.qs.length+'</span><span>Racha '+TR.racha+' · '+TR.puntos+' pts</span></div>'+
+      '<div class="barra"><i style="width:'+Math.round(100*TR.i/TR.qs.length)+'%"></i></div></div>'+
+    '</div>'+
+    '<div class="tk-zona">'+
+      '<div class="tk-senal">'+senalSVG(it.s)+'</div>'+
+      '<div class="tk-cartas" id="tk-cartas">'+cartas+'</div>'+
+      '<p class="sub" style="text-align:center;font-size:13px">Responde tocando una tarjeta o con las teclas 1–4</p>'+
+    '</div>'
+  );
+  TR.resuelto = false;
+  document.getElementById("tr-salir").addEventListener("click", function(){
+    modal("¿Salir de la trivia?", "Se pierde la ronda actual (tu récord se conserva).", "Salir", function(){ TR=null; document.onkeydown=null; irA("#/senales"); });
+  });
+  document.querySelectorAll("#tk-cartas .tk-carta").forEach(function(b){
+    b.addEventListener("click", function(){ responderTrivia(+b.getAttribute("data-op")); });
+  });
+  document.onkeydown = function(ev){
+    if(!TR || TR.fin) return;
+    if(!TR.resuelto && ev.key>="1" && ev.key<="4") responderTrivia(+ev.key-1);
+  };
+}
+function responderTrivia(pos){
+  if(!TR || TR.resuelto) return;
+  TR.resuelto = true;
+  var it = TR.qs[TR.i];
+  var ok = pos === it.correcta;
+  document.querySelectorAll("#tk-cartas .tk-carta").forEach(function(c, i){
+    c.disabled = true;
+    if(i === it.correcta){ c.classList.add("ok"); c.insertAdjacentHTML("beforeend", '<span class="tk-res">'+ico("check")+'</span>'); }
+    else if(i === pos) c.classList.add("mal");
+    else c.classList.add("apagada");
+  });
+  if(ok){
+    TR.aciertos++; TR.racha++; TR.mejorRacha = Math.max(TR.mejorRacha, TR.racha);
+    TR.puntos += 10 + (TR.racha>=3? 2:0);
+    sonido("ok");
+  } else { TR.racha = 0; sonido("mal"); }
+  var espera = ok? 900 : 1700; /* con fallo se da más tiempo para VER la correcta */
+  TR.i++; /* se avanza YA: si el usuario navega a mitad del feedback, al volver no se repite ni recuenta la señal */
+  var t = setTimeout(function(){ if(!TR || TR.fin) return; pintarTrivia(); }, espera);
+  timers.push(t);
+}
+function finalizarTrivia(){
+  document.onkeydown = null;
+  TR.fin = true;
+  if(!P.trivia) P.trivia = { jugadas:0, mejor:0, mejorRacha:0 };
+  P.trivia.jugadas++;
+  var nuevoRecord = TR.aciertos > (P.trivia.mejor||0);
+  if(nuevoRecord) P.trivia.mejor = TR.aciertos;
+  P.trivia.mejorRacha = Math.max(P.trivia.mejorRacha||0, TR.mejorRacha);
+  P.puntos = (P.puntos||0) + TR.puntos;
+  marcarRachaDia();
+  persistir();
+  sonido(TR.aciertos>=8? "aprobado":"fin");
+  shell(
+    '<div style="max-width:640px;margin:0 auto">'+
+    '<section class="card" style="text-align:center;display:grid;gap:10px;padding:34px">'+
+      '<span class="eyebrow">Ronda terminada</span>'+
+      '<div style="font-size:52px;font-weight:600;color:var(--navy)">'+TR.aciertos+'<small style="font-size:24px;color:var(--gris-m)">/'+TR.qs.length+'</small></div>'+
+      (nuevoRecord? '<span class="chip" style="background:var(--amarillo-c);color:var(--navy);justify-self:center">¡Nuevo récord!</span>' : '<span class="sub">Tu récord: '+P.trivia.mejor+'/'+TR.qs.length+'</span>')+
+      '<p class="sub">+'+TR.puntos+' puntos de entrenamiento · mejor racha de la ronda: '+TR.mejorRacha+'</p>'+
+      '<div class="fila" style="justify-content:center;gap:12px;margin-top:8px;flex-wrap:wrap">'+
+        '<button class="btn btn-pri" id="tr-otra">'+ico("flecha")+'Jugar otra ronda</button>'+
+        '<a class="btn btn-ter" href="#/senales">Volver a señales</a>'+
+      '</div>'+
+    '</section></div>'
+  );
+  document.getElementById("tr-otra").addEventListener("click", function(){
+    TR = { qs: armarRondaTrivia(10), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
+    pintarTrivia();
   });
 }
 
@@ -1065,8 +1368,10 @@ function vConfig(){
       '<div class="campo" style="margin-top:12px"><label for="cfg-meta">Meta de repaso diario (preguntas)</label>'+
       '<select id="cfg-meta">'+[10,15,20,30,40].map(function(n){ return '<option value="'+n+'"'+(cfg.meta===n?" selected":"")+'>'+n+' por día</option>'; }).join("")+'</select></div>'+
       '<button class="btn btn-pri" id="cfg-guardar" style="margin-top:14px">Guardar cambios</button>'+
-      '<div style="margin-top:18px;padding-top:4px">'+
-      '<button class="btn btn-ter" id="cfg-cambiar" style="padding-left:0">'+ico("usuarios")+'Cambiar de perfil</button></div>'+
+      '<div style="margin-top:18px;padding-top:4px;display:flex;gap:18px;flex-wrap:wrap">'+
+      '<button class="btn btn-ter" id="cfg-cambiar" style="padding-left:0">'+ico("usuarios")+'Cambiar de perfil</button>'+
+      (location.protocol.indexOf("http")===0? '<a class="btn btn-ter" href="/api/salir" style="padding-left:0">'+ico("salir")+'Cerrar acceso al sitio</a>' : "")+
+      '</div>'+
     '</section>'+
     '<section class="card"><h2 style="font-size:17px;margin-bottom:4px">Cómo quieres entrenar</h2>'+
       swHTML("sw-t20", cfg.timer20, "Temporizador de foco (20 segundos)", "Al agotarse aparece una pista y se descarta una alternativa. Entrena tu ventana de atención sin castigarte.")+
@@ -1165,12 +1470,13 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.1",
+  version: "1.2",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,
   dominioGlobal: dominioGlobal,
-  vencidasHoy: vencidasHoy
+  vencidasHoy: vencidasHoy,
+  triviaEstado: function(){ return TR; }
 };
 
 })();

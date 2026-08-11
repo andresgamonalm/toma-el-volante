@@ -20,8 +20,12 @@ llamado "Ruta B"; renombrado en ago-2026 y mudado a este repositorio propio.)
   volante navy `#040764` con empuñaduras amarillas `#FCE865` en la posición de manos
   9:15, wordmark Roboto 600 en trazados vectoriales.
 - `entregables/` — capturas 1920×1080, portada y documentación.
-- `verificacion/` — arnés E2E Playwright (recorrido completo; el simulacro se responde
-  desde el propio banco y debe dar 38/38 aprobado).
+- `acceso.html` + `functions/` — puerta del sitio publicado: middleware de Cloudflare
+  Pages que exige correo y contraseña (hash PBKDF2 en `functions/api/_config.js`, jamás
+  la contraseña; cookie firmada HttpOnly). La copia local con doble clic no pasa por la
+  puerta. Cambio de clave: `verificacion/generar_acceso.html` (doble clic).
+- `verificacion/` — arnés E2E Playwright (recorrido completo con la puerta REAL; el
+  simulacro se responde desde el propio banco y debe dar 38/38 aprobado).
 - `CLAUDE.md` y `DECISIONES-VISUALES.md` — memoria del proyecto y registro de
   decisiones/correcciones visuales (leer antes de proponer cambios).
 
@@ -38,7 +42,10 @@ llamado "Ruta B"; renombrado en ago-2026 y mudado a este repositorio propio.)
 Micro-sesiones de 10 · una pregunta por pantalla · feedback inmediato con el porqué y la cita
 · temporizador de foco de 20 s opcional (pista + descarte de 1 alternativa, nunca castigo)
 · repetición espaciada Leitner (1-2-4-7-15 días) · simulacros fieles · ranking personal ·
-control individual de cada pregunta (vistas, aciertos, fallos, racha, dominio, próximo repaso).
+control individual de cada pregunta (vistas, aciertos, fallos, racha, dominio, próximo repaso)
+· **trivia de señales** con tarjetas de color (reconocimiento de un vistazo, récord y racha)
+· **plan de estudio** por fecha de examen (simulacros en la recta final) con recordatorios
+al calendario (.ics con alarma) y fichas con avance de lectura persistente.
 
 ## Regenerar el banco
 El pipeline vive en el scratchpad de sesión (`ensamblar_banco.py`): valida estructura,
