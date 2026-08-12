@@ -1001,9 +1001,12 @@ var senFiltro = "todas";
    producción y abierto con doble clic. Variantes reales del libro (espejos
    izquierda/derecha, versión auto/camión, los 9 cruces) comparten nombre y se
    distinguen por id (-2, -3…). */
+/* SENAL_V rompe la caché larga de /senales/ (max-age 7d) cuando se renueva el
+   arte: subirla junto con la versión del app cada vez que cambie algún PNG. */
+var SENAL_V = "2";
 function senalImg(s, px){
   px = px || 96;
-  return '<img class="senal-img" src="senales/'+s.id+'.png" alt="Señal: '+esc(s.nombre)+'" loading="lazy" style="max-width:'+px+'px;max-height:'+px+'px">';
+  return '<img class="senal-img" src="senales/'+s.id+'.png?v='+SENAL_V+'" alt="Señal: '+esc(s.nombre)+'" loading="lazy" style="max-width:'+px+'px;max-height:'+px+'px">';
 }
 function vSenales(){
   var senales = DATA.senales||[];
@@ -1400,7 +1403,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3.1",
+  version: "1.3.2",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,

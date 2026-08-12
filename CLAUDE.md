@@ -131,7 +131,29 @@ El usuario subió el PDF del libro a su Drive ("Libro_para_la_conduccion_en_Chil
   check, rojo la elegida incorrecta; el resto no se atenúa). TK_CARTAS y las formas ▲◆●■
   se eliminaron.
 
+## v1.3.2 — nitidez con el Manual de Señalización (12-ago, EN CURSO)
+El usuario subió a Drive la carpeta "Manual-Señalización" (Manual de Señalización de Tránsito
+MTT/CONASET por capítulos). **En el manual las señales a color son VECTORIALES** → nitidez
+infinita. Pipeline probado con cap5 (transitorias): localizar rellenos naranjo/amarillo con
+`get_drawings()` en el rango de cada sección "SEÑAL X (CÓDIGO)" (los rasters ~430px de esas
+páginas son los DIBUJOS TÉCNICOS con cotas — no confundir), render del clip a ~600px,
+verificación lado a lado contra el arte del libro (mismo símbolo y composición) y quantize.
+4 integradas: trabajos-en-la-via, fin-trabajos-en-la-via, banderero, transito-de-maquinaria.
+`SENAL_V` en app JS versiona las URLs de /senales/ (rompe el max-age 7d al renovar arte).
+- **BLOQUEO cap2 (SenalesVerticales, 6.8 MB = 181 señales restantes):** el conector de Drive
+  no entrega archivos sobre ~4-5 MB ("session expired"; cap5 de 3 MB sí bajó) y el proxy
+  bloquea drive.google.com, conaset.cl y mtt.gob.cl. VÍA CONFIABLE: que el usuario suba
+  `capitulo2_SenalesVerticales.pdf` al repo por GitHub web (carpeta `fuentes/`); GitHub sí
+  está permitido. Pedido al usuario el 12-ago. Con ese archivo: mismo pipeline (secciones
+  RPI/RPO/RR/RO/RA/PF/PO/PE/IS... con fills cálidos Y fríos — rojo/azul/verde según familia),
+  match por nombre contra DATA.senales (alias MATENGA↔MANTENGA), comparación visual 1:1
+  contra el libro ANTES de reemplazar (si la composición difiere, manda el LIBRO), quantize
+  160, subir SENAL_V.
+- El trío desvío/proximidad/fin-desvío del manual es raster ~170px (≈ libro): se mantiene
+  el arte del libro. Las otras 7 transitorias no tienen lámina individual en cap5.
+
 ## Estado
+v1.3.2 (12-ago-2026): 4 transitorias en vectorial del Manual; resto pendiente de cap2.
 v1.3.1 (12-ago-2026): anti-caché + alternativas uniformes RB-014.
 v1.3 (11-ago-2026): arte oficial CONASET en señales/trivia/galería, 4 familias, 195 señales.
 v1.2: seguridad de sitio + trivia + fichas claras/avance + plan con .ics (35/35 PASS). v1.1:
