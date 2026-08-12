@@ -107,9 +107,22 @@ function cargarPerfil(id){
   return perfilNuevoDatos();
 }
 function fichasDe(capId){ return DATA.fichas.filter(function(f){ return String(f.capitulo)===String(capId); }); }
+function laminasDe(capId){ return (DATA.laminas||[]).filter(function(l){ return String(l.capitulo)===String(capId); }); }
+/* Contenido del capítulo = FICHAS (resúmenes) + LÁMINAS (las figuras originales
+   del libro — el usuario detectó que los dibujos del CONASET enseñan contenido
+   de examen y no podían quedar fuera). Se entrelazan por página del libro para
+   que el flujo de lectura siga al libro. La clave de lectura de una ficha sigue
+   siendo cap:índice (compatibilidad con el avance guardado); una lámina usa
+   cap:L<id>. */
+function contenidosDe(capId){
+  var items = fichasDe(capId).map(function(f, i){ return { tipo:"ficha", f:f, clave:capId+":"+i, pagina:f.pagina }; })
+    .concat(laminasDe(capId).map(function(l){ return { tipo:"lamina", l:l, clave:capId+":L"+l.id, pagina:l.pagina }; }));
+  items.sort(function(a,b){ return a.pagina-b.pagina || (a.tipo==="lamina")-(b.tipo==="lamina"); });
+  return items;
+}
 function fichasLeidasDe(capId){
-  var n = 0, total = fichasDe(capId).length;
-  for(var i=0; i<total; i++){ if(P.fichasLeidas[capId+":"+i]) n++; }
+  var n = 0;
+  contenidosDe(capId).forEach(function(it){ if(P.fichasLeidas[it.clave]) n++; });
   return n;
 }
 function persistir(){ if(!ROOT.activo) return; try{ localStorage.setItem(LS_ROOT+":p:"+ROOT.activo, JSON.stringify(P)); }catch(e){ toast("No se pudo guardar el avance"); } }
@@ -493,13 +506,13 @@ function vEstudiar(){
   var cards = DATA.capitulos.map(function(c){
     var qs = preguntasDe(c.id), dom = dominioCap(c.id);
     var vistas = qs.filter(function(q){ return progDe(q.id); }).length;
-    var totalF = fichasDe(c.id).length, leidas = totalF? fichasLeidasDe(c.id) : 0;
+    var totalF = contenidosDe(c.id).length, leidas = totalF? fichasLeidasDe(c.id) : 0;
     var chip = dom>=85? '<span class="chip chip-dom">Dominado</span>' : ((vistas || leidas)? '<span class="chip chip-curso">En curso</span>' : '<span class="chip chip-nuevo">Nuevo</span>');
     return '<a class="cap-card" href="#/estudiar/'+c.id+'">'+
       '<div class="fila"><span class="cap-num crece">'+(c.id==="senales"? "Anexo" : "Capítulo "+c.id)+'</span>'+chip+'</div>'+
       '<h3>'+esc(c.label)+'</h3>'+
       '<div class="barra"><i style="width:'+dom+'%"></i></div>'+
-      '<div class="cap-meta"><span>'+dom+'% de dominio'+(totalF? ' · '+leidas+'/'+totalF+' fichas':'')+'</span><span>'+qs.length+' preguntas · pág. '+c.pagina+'</span></div>'+
+      '<div class="cap-meta"><span>'+dom+'% de dominio'+(totalF? ' · '+leidas+'/'+totalF+' contenidos':'')+'</span><span>'+qs.length+' preguntas · pág. '+c.pagina+'</span></div>'+
     '</a>';
   }).join("");
   shell(
@@ -515,74 +528,92 @@ function vCapitulo(capId){
   var cap = DATA.capitulos.find(function(c){ return String(c.id)===String(capId); });
   if(!cap){ irA("#/estudiar"); return; }
   P.ultCap = cap.id; persistir();
-  var fichas = DATA.fichas.filter(function(f){ return String(f.capitulo)===String(cap.id); });
+  var contenidos = contenidosDe(cap.id);
+  var nFichas = fichasDe(cap.id).length, nLaminas = laminasDe(cap.id).length;
   var qs = preguntasDe(cap.id), dom = dominioCap(cap.id);
   shell(
     '<a class="btn-ter" href="#/estudiar" style="display:inline-flex;align-items:center;gap:6px;padding-left:0">'+ico("flechaIzq")+'Todos los capítulos</a>'+
     '<div class="sec-head" style="margin-top:6px"><div><span class="eyebrow">'+(cap.id==="senales"? "Anexo oficial" : "Capítulo "+cap.id)+' · pág. '+cap.pagina+' del libro</span>'+
     '<h1 style="font-size:24px;margin-top:4px">'+esc(cap.label)+'</h1></div>'+
     '<div style="min-width:190px"><div class="cap-meta" style="margin-bottom:5px"><span>Dominio</span><b style="color:var(--navy)">'+dom+'%</b></div><div class="barra b-navy"><i style="width:'+dom+'%"></i></div>'+
-    (fichas.length? '<div class="cap-meta" style="margin:9px 0 5px"><span>Fichas leídas</span><b style="color:var(--turq-o)" id="cap-fichas-num">0/'+fichas.length+'</b></div><div class="barra"><i id="cap-fichas-bar" style="width:0%;background:var(--turq)"></i></div>' : "")+
+    (contenidos.length? '<div class="cap-meta" style="margin:9px 0 5px"><span>Contenido leído</span><b style="color:var(--turq-o)" id="cap-fichas-num">0/'+contenidos.length+'</b></div><div class="barra"><i id="cap-fichas-bar" style="width:0%;background:var(--turq)"></i></div>' : "")+
     '</div></div>'+
     '<section class="card" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">'+
       '<div class="crece"><h2 style="font-size:18px">Micro-quiz de este capítulo</h2>'+
       '<p class="sub">10 preguntas en unos 5 minutos. Primero las que te tocan repasar, después las nuevas.</p></div>'+
       '<button class="btn btn-pri" id="btn-quiz">'+ico("flecha")+'Partir micro-quiz</button>'+
     '</section>'+
-    /* TODAS las fichas a la vista en UNA pantalla (referencia del usuario:
-       el deslizable de a una lo hacía difícil). La lectura se registra sola
-       cuando la tarjeta queda a la vista un momento; cada ficha muestra su
-       estado con el punto turquesa y los contadores avanzan en vivo. */
-    (fichas.length?
-      '<section aria-label="Fichas de repaso" style="margin-top:18px">'+
-      '<h2 style="font-size:18px;margin-bottom:10px">Fichas de repaso <span class="sub" style="font-weight:400">· quedan marcadas como leídas al pasar por ellas</span></h2>'+
-      '<div class="fichas-grid">'+fichas.map(function(f, i){
-        var leida = !!P.fichasLeidas[cap.id+":"+i];
-        return '<article class="ficha'+(leida? " leida":"")+'" data-fi="'+i+'">'+
+    /* TODO el contenido del capítulo a la vista, en el ORDEN del libro:
+       fichas (resúmenes) + LÁMINAS ORIGINALES del libro (los dibujos que
+       enseñan contenido de examen — orden del usuario: nada oculto).
+       La lectura se registra sola al pasar por cada tarjeta; el clic en una
+       lámina la abre en grande. */
+    (contenidos.length?
+      '<section aria-label="Contenido del capítulo" style="margin-top:18px">'+
+      '<h2 style="font-size:18px;margin-bottom:10px">Contenido del capítulo <span class="sub" style="font-weight:400">· '+nFichas+' '+plural(nFichas,"ficha","fichas")+' + '+nLaminas+' '+plural(nLaminas,"lámina del libro","láminas del libro")+' · en el orden del libro</span></h2>'+
+      '<div class="fichas-grid">'+contenidos.map(function(it, idx){
+        var leida = !!P.fichasLeidas[it.clave];
+        if(it.tipo === "ficha"){
+          var f = it.f;
+          return '<article class="ficha'+(leida? " leida":"")+'" data-cl="'+escAttrClave(it.clave)+'">'+
+            '<span class="sen-dot ok ficha-dot" aria-hidden="true"></span>'+
+            '<span class="eyebrow">Ficha · '+esc(f.seccion||cap.label)+'</span>'+
+            '<h3>'+esc(f.titulo)+'</h3><p>'+esc(f.texto)+'</p>'+
+            (f.dato? '<span class="dato">'+esc(f.dato)+'</span>':"")+
+            '<span class="pag">Libro CONASET, página '+f.pagina+'</span></article>';
+        }
+        var l = it.l;
+        return '<article class="ficha lamina'+(leida? " leida":"")+'" data-cl="'+escAttrClave(it.clave)+'" data-lam="'+l.id+'" role="button" tabindex="0" aria-label="Ver lámina en grande">'+
           '<span class="sen-dot ok ficha-dot" aria-hidden="true"></span>'+
-          '<span class="eyebrow">Ficha '+(i+1)+' de '+fichas.length+' · '+esc(f.seccion||cap.label)+'</span>'+
-          '<h3>'+esc(f.titulo)+'</h3><p>'+esc(f.texto)+'</p>'+
-          (f.dato? '<span class="dato">'+esc(f.dato)+'</span>':"")+
-          '<span class="pag">Libro CONASET, página '+f.pagina+'</span></article>';
+          '<span class="eyebrow">Lámina del libro</span>'+
+          '<h3>'+esc(l.titulo)+'</h3>'+
+          '<img class="lam-img" src="laminas/'+l.id+'.png?v='+LAMINA_V+'" alt="'+esc(l.titulo)+'" loading="lazy">'+
+          '<span class="pag">Libro CONASET, página '+l.pagina+' · toca para ampliar</span></article>';
       }).join("")+'</div></section>' : "")
   );
-  if(fichas.length){
+  if(contenidos.length){
     var refrescarContador = function(){
       var leidas = fichasLeidasDe(cap.id);
       var num = document.getElementById("cap-fichas-num"), bar = document.getElementById("cap-fichas-bar");
-      if(num){ num.textContent = leidas+"/"+fichas.length; }
-      if(bar){ bar.style.width = Math.round(100*leidas/fichas.length)+"%"; }
+      if(num){ num.textContent = leidas+"/"+contenidos.length; }
+      if(bar){ bar.style.width = Math.round(100*leidas/contenidos.length)+"%"; }
     };
     refrescarContador();
-    var marcarLeida = function(i){
-      var clave = cap.id+":"+i;
+    var marcarLeida = function(clave){
       if(P.fichasLeidas[clave]) return;
       P.fichasLeidas[clave] = Date.now(); persistir();
-      var el = document.querySelector('.ficha[data-fi="'+i+'"]');
-      if(el) el.classList.add("leida");
+      document.querySelectorAll('.fichas-grid [data-cl]').forEach(function(el){
+        if(el.getAttribute("data-cl") === clave) el.classList.add("leida");
+      });
       refrescarContador();
     };
-    /* leída = estuvo a la vista ~1.2 s (si el navegador no trae el observer,
-       basta tocar la tarjeta) */
+    /* leída = estuvo a la vista ~1.2 s (sin observer, basta tocar la tarjeta) */
     var pendientes = {};
     if(window.IntersectionObserver){
       var obs = new IntersectionObserver(function(entradas){
         entradas.forEach(function(en){
-          var i = +en.target.getAttribute("data-fi");
+          var clave = en.target.getAttribute("data-cl");
           if(en.isIntersecting && en.intersectionRatio >= 0.6){
-            if(pendientes[i] == null){
-              pendientes[i] = setTimeout(function(){ marcarLeida(i); obs.unobserve(en.target); }, 1200);
-              timers.push(pendientes[i]);
+            if(pendientes[clave] == null){
+              pendientes[clave] = setTimeout(function(){ marcarLeida(clave); obs.unobserve(en.target); }, 1200);
+              timers.push(pendientes[clave]);
             }
-          } else if(pendientes[i] != null){
-            clearTimeout(pendientes[i]); pendientes[i] = null;
+          } else if(pendientes[clave] != null){
+            clearTimeout(pendientes[clave]); pendientes[clave] = null;
           }
         });
       }, { threshold: [0.6] });
-      document.querySelectorAll(".fichas-grid .ficha").forEach(function(el){ obs.observe(el); });
+      document.querySelectorAll(".fichas-grid [data-cl]").forEach(function(el){ obs.observe(el); });
     }
-    document.querySelectorAll(".fichas-grid .ficha").forEach(function(el){
-      el.addEventListener("click", function(){ marcarLeida(+el.getAttribute("data-fi")); });
+    document.querySelectorAll(".fichas-grid [data-cl]").forEach(function(el){
+      el.addEventListener("click", function(){
+        marcarLeida(el.getAttribute("data-cl"));
+        var lam = el.getAttribute("data-lam");
+        if(lam) verLamina(lam);
+      });
+      el.addEventListener("keydown", function(ev){
+        if((ev.key === "Enter" || ev.key === " ") && el.getAttribute("data-lam")){ ev.preventDefault(); marcarLeida(el.getAttribute("data-cl")); verLamina(el.getAttribute("data-lam")); }
+      });
     });
   }
   document.getElementById("btn-quiz").addEventListener("click", function(){
@@ -1022,6 +1053,24 @@ var senFiltro = "todas";
 /* SENAL_V rompe la caché larga de /senales/ (max-age 7d) cuando se renueva el
    arte: subirla junto con la versión del app cada vez que cambie algún PNG. */
 var SENAL_V = "3";
+/* LAMINA_V versiona las figuras del libro en /laminas/ (mismo mecanismo). */
+var LAMINA_V = "1";
+function escAttrClave(c){ return esc(String(c)); }
+/* Visor de lámina en grande (las tablas y diagramas del libro necesitan
+   tamaño completo para leerse). Clic o Escape cierran. */
+function verLamina(id){
+  var l = (DATA.laminas||[]).find(function(x){ return x.id === id; });
+  if(!l) return;
+  var v = document.createElement("div");
+  v.className = "visor";
+  v.innerHTML = '<figure><img src="laminas/'+l.id+'.png?v='+LAMINA_V+'" alt="'+esc(l.titulo)+'">'+
+    '<figcaption><b>'+esc(l.titulo)+'</b> · Libro CONASET, página '+l.pagina+' · toca para cerrar</figcaption></figure>';
+  var cerrar = function(){ v.remove(); document.removeEventListener("keydown", porTecla); };
+  var porTecla = function(ev){ if(ev.key === "Escape") cerrar(); };
+  v.addEventListener("click", cerrar);
+  document.addEventListener("keydown", porTecla);
+  document.body.appendChild(v);
+}
 function senalImg(s, px){
   px = px || 96;
   return '<img class="senal-img" src="senales/'+s.id+'.png?v='+SENAL_V+'" alt="Señal: '+esc(s.nombre)+'" loading="lazy" style="max-width:'+px+'px;max-height:'+px+'px">';
@@ -1404,7 +1453,7 @@ function vConfig(){
       '<div style="margin-top:16px"><button class="btn btn-peligro" id="cfg-reset">Borrar todo mi progreso</button></div>'+
     '</section>'+
     '<section class="card"><h2 style="font-size:17px;margin-bottom:8px">Acerca de Toma el Volante</h2>'+
-      '<p class="sub" style="font-size:14px">Entrenador del examen teórico Clase B de Chile. Las '+DATA.preguntas.length+' preguntas y '+DATA.fichas.length+' fichas fueron construidas desde el <b>Libro para la Conducción en Chile</b> (CONASET, edición febrero 2026), cada una con su cita y página de respaldo. El simulacro replica la modalidad oficial del examen (35 preguntas, 3 de doble puntaje, 38 puntos, mínimo 33, 45 minutos).</p>'+
+      '<p class="sub" style="font-size:14px">Entrenador del examen teórico Clase B de Chile. Las '+DATA.preguntas.length+' preguntas y '+DATA.fichas.length+' fichas fueron construidas desde el <b>Libro para la Conducción en Chile</b> (CONASET, edición febrero 2026), cada una con su cita y página de respaldo; las '+(DATA.laminas||[]).length+' láminas de estudio son las figuras ORIGINALES del libro, y las 195 señales, el arte oficial de su anexo. El simulacro replica la modalidad oficial del examen (35 preguntas, 3 de doble puntaje, 38 puntos, mínimo 33, 45 minutos).</p>'+
       '<p class="sub" style="font-size:13px;margin-top:10px">Material de estudio independiente: no es el examen oficial ni sus preguntas reales (ese banco no es público). Fuente oficial gratuita: mejoresconductores.conaset.cl</p>'+
       '<p class="sub" style="font-size:13px;margin-top:10px">Desarrollado por Gamonal.</p>'+
     '</section>'+
@@ -1486,7 +1535,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3.5",
+  version: "1.4.0",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,

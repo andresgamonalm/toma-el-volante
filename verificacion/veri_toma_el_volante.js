@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.3.5", marca.version === "1.3.5", marca.version);
+  chk("versión interna 1.4.0", marca.version === "1.4.0", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -177,17 +177,34 @@ function chk(nombre, ok, extra) {
   chk("8 capítulos listados", (await page.$$(".cap-card")).length === 8);
   await shot("capitulos");
 
-  // 4a. fichas: TODAS a la vista en UNA pantalla (referencia del usuario) + lectura automática
+  // 4a. contenido del capítulo: fichas + LÁMINAS DEL LIBRO en una pantalla, orden del libro
   await page.click(".cap-card"); await page.waitForSelector("#btn-quiz");
   const fichasGrid = await page.evaluate(() => ({
     n: document.querySelectorAll(".fichas-grid .ficha").length,
-    total: window.RUTAB.data.fichas.filter(f => String(f.capitulo) === "1").length,
+    laminas: document.querySelectorAll(".fichas-grid .lamina").length,
+    totalF: window.RUTAB.data.fichas.filter(f => String(f.capitulo) === "1").length,
+    totalL: (window.RUTAB.data.laminas || []).filter(l => String(l.capitulo) === "1").length,
     bg: getComputedStyle(document.querySelector(".ficha")).backgroundColor,
     contador: !!document.getElementById("cap-fichas-num")
   }));
-  chk("fichas: TODAS en una sola pantalla (grilla, sin deslizable) y tarjeta blanca",
-    fichasGrid.n === fichasGrid.total && fichasGrid.n > 0 && fichasGrid.bg === "rgb(255, 255, 255)" && fichasGrid.contador,
+  chk("contenido: fichas + láminas del libro TODAS en una pantalla (nada oculto)",
+    fichasGrid.n === fichasGrid.totalF + fichasGrid.totalL && fichasGrid.laminas === fichasGrid.totalL && fichasGrid.laminas > 0
+    && fichasGrid.bg === "rgb(255, 255, 255)" && fichasGrid.contador,
     JSON.stringify(fichasGrid));
+  // visor: una lámina se abre en grande con su imagen ORIGINAL del libro
+  await page.evaluate(async () => {
+    const lam = document.querySelector(".fichas-grid .lamina");
+    lam.scrollIntoView(); lam.click();
+  });
+  await page.waitForSelector(".visor img");
+  const visor = await page.evaluate(async () => {
+    const im = document.querySelector(".visor img");
+    if (!im.complete) await new Promise(r => { im.onload = im.onerror = r; });
+    return { src: im.src.includes("/laminas/"), w: im.naturalWidth };
+  });
+  chk("láminas: el visor abre la figura original del libro en grande", visor.src && visor.w > 300, JSON.stringify(visor));
+  await page.evaluate(() => document.querySelector(".visor").click());
+  await page.waitForTimeout(150);
   /* leer = quedar a la vista: se espera el umbral (1.2 s) y se recorre la grilla */
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -294,10 +311,11 @@ function chk(nombre, ok, extra) {
      el arte estable cachea una semana */
   const cache = await page.evaluate(async () => ({
     js: (await fetch("/app_toma_el_volante.js?v=sonda")).headers.get("cache-control"),
-    png: (await fetch("/senales/pare.png")).headers.get("cache-control")
+    png: (await fetch("/senales/pare.png")).headers.get("cache-control"),
+    lam: (await fetch("/laminas/f024_00.png")).headers.get("cache-control")
   }));
-  chk("caché: JS con no-cache y señales con max-age (la versión nueva SIEMPRE llega)",
-    cache.js === "no-cache" && /max-age=604800/.test(cache.png || ""), JSON.stringify(cache));
+  chk("caché: JS con no-cache; señales y láminas con max-age (la versión nueva SIEMPRE llega)",
+    cache.js === "no-cache" && /max-age=604800/.test(cache.png || "") && /max-age=604800/.test(cache.lam || ""), JSON.stringify(cache));
   await shot("senales");
   const btnTrivia = await page.evaluate(() => (document.getElementById("sen-quiz") || {}).textContent || "");
   chk("señales: el botón principal lanza la trivia", btnTrivia.includes("trivia") || btnTrivia.includes("Trivia"), btnTrivia);

@@ -206,7 +206,30 @@ verificación lado a lado contra el arte del libro (mismo símbolo y composició
   en su página (auditado 87/87 tras el fix). Re-ejecutar la auditoría ante cualquier
   duda de contenido; ante nueva edición del libro, correr el pipeline completo.
 
+## v1.4.0 — LÁMINAS DEL LIBRO + cobertura 100% (12-ago, no rehacer)
+El usuario (tras un examen de entrenamiento real): "los manuales de la CONASET tienen
+dibujos que muestran una determinada información y tú los sacaste... replantear la
+sección de estudio, integrar lo que falte, nada oculto". Hecho (RB-016):
+- **141 LÁMINAS** = las figuras informativas de los caps 1-7 extraídas del PDF por
+  clustering de regiones gráficas (rasters+vectores), revisadas UNA A UNA (6 hojas),
+  títulos curados a mano, optimizadas (≤1200px, paleta 192, 4.9 MB) en **`laminas/`**.
+  `DATA.laminas = {id, capitulo, pagina, titulo}`. Se descartó solo un QR decorativo.
+- **vCapitulo**: contenido = fichas + láminas ENTRELAZADAS por página (orden del libro),
+  `contenidosDe()`/`laminasDe()`; contador unificado "Contenido leído M/N" (claves ficha
+  cap:idx SIN cambio; lámina cap:L<id>); tarjeta `.lamina` con `verLamina()` = visor
+  overlay a pantalla completa (`.visor`). LAMINA_V versiona /laminas/ (max-age 7d en
+  middleware, igual que señales).
+- **6 fichas nuevas** para las únicas páginas de contenido sin ancla (65 fatiga, 99
+  peligros del encuentro, 122 calzada anegada, 125 niebla, 134 seguridad=eficiencia,
+  148 vehículo eléctrico). **Cobertura final: 0 páginas de contenido (6-148) sin
+  ficha/lámina/pregunta; 93/93 fichas con números respaldados en su página.**
+- Totales: 262 preguntas · 93 fichas · 141 láminas · 195 señales. 45/45 PASS.
+- **PENDIENTE SIGUIENTE (comprometido): implementar la Propuesta B "La Cabina"**
+  (elegida por el usuario 12-ago) sobre este contenido sano; luego, preguntas CON
+  imagen (q.img) usando láminas como material, con cita+página y revisión 1:1.
+
 ## Estado
+v1.4.0 (12-ago-2026): láminas del libro integradas al estudio, cobertura 100%, B elegida.
 v1.3.5 (12-ago-2026): fichas en una pantalla (RB-015) + auditoría de contenido y 6
 páginas corregidas. 44/44 PASS.
 v1.3.4 (12-ago-2026): trivia con tamaño de ronda a elección + control por señal.

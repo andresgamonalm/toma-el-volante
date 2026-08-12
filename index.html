@@ -175,6 +175,14 @@ a.lanz,a.lanz:hover,a.cap-card,a.cap-card:hover,.tb-logo:hover,.tabbar a:hover{t
 .ficha .pag{font-size:12.5px;color:var(--gris-m);margin-top:auto}
 .ficha .ficha-dot{display:none}
 .ficha.leida .ficha-dot{display:block}
+/* Láminas del libro (figuras originales CONASET) dentro de la grilla de contenido */
+.ficha.lamina{cursor:zoom-in}
+.lam-img{width:100%;height:auto;border-radius:6px;background:#fff}
+.visor{position:fixed;inset:0;background:rgba(4,7,100,.82);z-index:60;display:flex;align-items:center;justify-content:center;padding:26px;cursor:zoom-out}
+.visor figure{max-width:min(1200px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
+.visor img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;background:#fff}
+.visor figcaption{color:#fff;font-size:13.5px;text-align:center}
+.visor figcaption b{color:var(--amarillo)}
 
 /* ============ Plan de estudio ============ */
 .hoy-der{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
@@ -365,7 +373,7 @@ table.tabla{width:100%;border-collapse:collapse;font-size:14px}
 <body>
 <div id="app"></div>
 <!-- ?v= fuerza JS fresco tras cada deploy (subir el número junto con la versión del app) -->
-<script src="datos_toma_el_volante.js?v=1.3.5"></script>
-<script src="app_toma_el_volante.js?v=1.3.5"></script>
+<script src="datos_toma_el_volante.js?v=1.4.0"></script>
+<script src="app_toma_el_volante.js?v=1.4.0"></script>
 </body>
 </html>

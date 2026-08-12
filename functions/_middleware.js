@@ -24,7 +24,7 @@ const LIBRES = new Set([
 function conCache(res, pathname) {
   if (pathname.startsWith("/api/")) return res; /* /api lleva Set-Cookie: no re-envolver */
   const h = new Headers(res.headers);
-  if (pathname.startsWith("/senales/")) h.set("Cache-Control", "public, max-age=604800");
+  if (pathname.startsWith("/senales/") || pathname.startsWith("/laminas/")) h.set("Cache-Control", "public, max-age=604800");
   else if (pathname === "/" || pathname.endsWith(".html") || pathname.endsWith(".js")) h.set("Cache-Control", "no-cache");
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
 }
