@@ -175,7 +175,23 @@ verificación lado a lado contra el arte del libro (mismo símbolo y composició
 - El trío desvío/proximidad/fin-desvío del manual es raster ~170px (≈ libro): se mantiene
   el arte del libro. Las otras 7 transitorias no tienen lámina individual en cap5.
 
+## Trivia v1.3.4 — tamaño a elección + CONTROL por señal (12-ago, pedido del usuario)
+"Déjame elegir la cantidad de señales... y hay que llevar el control de las que respondí":
+- **Selector de ronda** en la intro de la trivia (`#tr-tams`, estilo .filtro): 10/25/50/
+  **Todas · 151** — persistente en `P.trivia.tam` (0 = todas; `tamRonda()`/`poolTrivia()`).
+- **Registro por señal** `P.senales[id] = {v,a,f}` (se escribe y persiste en CADA respuesta,
+  sobrevive salidas a mitad de ronda). Alimenta: tarjeta **"Tu control del catálogo"**
+  (X de 151 + % de acierto + barra, en intro y al final de cada ronda), **puntos de estado
+  en la galería** (`.sen-dot` turquesa = domina a≥f, rojo = falla; title con el detalle)
+  y línea "Tu control en la trivia: X de 151" en el sub de la galería.
+- **La ronda prioriza**: no-vistas → falladas (f≥a) → dominadas (armarRondaTrivia), con
+  orden barajado — una ronda "Todas" recorre el catálogo completo sin repetir.
+- **Récord ahora PORCENTUAL por ronda** (`P.trivia.mejorPct`; los tamaños varían) con
+  migración del viejo `mejor` x/10 (×10) en vTrivia. Arnés: 45/45 PASS (4 asserts nuevos:
+  selector+control, ronda Todas=151, registro perfil, dots galería).
+
 ## Estado
+v1.3.4 (12-ago-2026): trivia con tamaño de ronda a elección + control por señal.
 v1.3.3 (12-ago-2026): 132/195 señales en VECTORIAL del Manual oficial (nitidez total).
 v1.3.2 (12-ago-2026): 4 transitorias en vectorial del Manual.
 v1.3.1 (12-ago-2026): anti-caché + alternativas uniformes RB-014.

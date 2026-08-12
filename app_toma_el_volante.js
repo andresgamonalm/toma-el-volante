@@ -1014,13 +1014,21 @@ function vSenales(){
   var fam = [["todas","Todas"],["reglamentaria","Reglamentarias"],["preventiva","Preventivas"],["informativa","Informativas"],["transitoria","Transitorias"]];
   var filtros = fam.map(function(f){ return '<button class="filtro'+(senFiltro===f[0]?" activa":"")+'" data-fam="'+f[0]+'">'+f[1]+' · '+nFam(f[0])+'</button>'; }).join("");
   var lista = senales.filter(function(s){ return senFiltro==="todas" || s.familia===senFiltro; });
+  /* punto de estado por señal (control de la trivia): turquesa = la dominas,
+     rojo = te falla, sin punto = aún no la respondes */
+  var regT = P.senales||{};
+  var pool = poolTrivia();
+  var vistasT = pool.filter(function(s){ return regT[s.id]; }).length;
   var cards = lista.map(function(s){
-    return '<div class="sen-card"><div class="sen-art">'+senalImg(s)+'</div><b>'+esc(s.nombre)+'</b>'+(s.descripcion? '<span>'+esc(s.descripcion)+'</span>' : "")+'</div>';
+    var r = regT[s.id];
+    var dot = r? '<span class="sen-dot '+(r.a>=r.f? "ok":"mal")+'" title="Trivia: '+r.a+' '+plural(r.a,"acierto","aciertos")+' · '+r.f+' '+plural(r.f,"fallo","fallos")+'"></span>' : "";
+    return '<div class="sen-card">'+dot+'<div class="sen-art">'+senalImg(s)+'</div><b>'+esc(s.nombre)+'</b>'+(s.descripcion? '<span>'+esc(s.descripcion)+'</span>' : "")+'</div>';
   }).join("");
   shell(
     '<div class="sec-head"><div><span class="eyebrow">Anexo del libro oficial · páginas 150–160</span>'+
     '<h1 style="font-size:24px;margin-top:4px">Señales de tránsito</h1>'+
-    '<p class="sub">Reglamentarias: obligan o prohíben. Preventivas: advierten un peligro. Informativas: orientan y guían. Transitorias: trabajos en la vía.</p></div>'+
+    '<p class="sub">Reglamentarias: obligan o prohíben. Preventivas: advierten un peligro. Informativas: orientan y guían. Transitorias: trabajos en la vía.'+
+    (vistasT? ' Tu control en la trivia: <b style="color:var(--navy)">'+vistasT+'</b> de '+pool.length+' respondidas (punto turquesa = la dominas, rojo = te falla).' : '')+'</p></div>'+
     '<button class="btn btn-pri" id="sen-quiz">'+ico("trivia")+'Jugar la trivia</button></div>'+
     '<div class="filtros">'+filtros+'</div>'+
     '<div class="sen-grid">'+cards+'</div>'+
@@ -1061,7 +1069,14 @@ var TRIVIA_EXCLUIR = { "pare":1, "pare-ninos":1, "no-cambiar-de-pista":1,
   "fin-trabajos-en-la-via":1, "peligro-2":1, "desvio":1, "proximidad-de-desvio":1, "fin-de-desvio":1 };
 function armarRondaTrivia(n){
   var senales = (DATA.senales||[]).filter(function(s){ return !TRIVIA_EXCLUIR[s.id]; });
-  var elegidas = shuffle(senales.slice()).slice(0, n);
+  /* CONTROL del usuario: la ronda parte por las señales que AÚN NO responde,
+     sigue con las falladas y recién al final repite las dominadas — así
+     cualquier tamaño de ronda avanza la cobertura del catálogo completo. */
+  var reg = P.senales||{};
+  var noVistas = shuffle(senales.filter(function(s){ return !reg[s.id]; }));
+  var falladas = shuffle(senales.filter(function(s){ var r = reg[s.id]; return r && r.f >= r.a; }));
+  var dominadas = shuffle(senales.filter(function(s){ var r = reg[s.id]; return r && r.f < r.a; }));
+  var elegidas = shuffle(noVistas.concat(falladas).concat(dominadas).slice(0, n));
   return elegidas.map(function(s){
     /* las variantes reales del libro comparten NOMBRE (espejos, auto/camión,
        los 9 cruces): los distractores se eligen por nombre distinto y sin
@@ -1077,27 +1092,62 @@ function armarRondaTrivia(n){
     return { s:s, opciones:opciones, correcta:opciones.indexOf(s.nombre) };
   });
 }
+/* Tamaño de ronda elegido por el usuario (persistente): 10/25/50 o 0 = todas. */
+function tamRonda(pool){
+  var t = (P.trivia && P.trivia.tam);
+  return t === 0 ? pool : (t || 10);
+}
+function poolTrivia(){
+  return (DATA.senales||[]).filter(function(s){ return !TRIVIA_EXCLUIR[s.id]; });
+}
 function vTrivia(){
   if(TR && !TR.fin){ pintarTrivia(); return; }
   TR = null;
-  var t = P.trivia||{};
+  if(!P.trivia) P.trivia = {};
+  var t = P.trivia;
+  /* migración del récord viejo (x/10) al récord porcentual por ronda */
+  if(t.mejorPct == null && t.mejor != null) t.mejorPct = t.mejor * 10;
+  var pool = poolTrivia();
+  var reg = P.senales||{};
+  var vistas = 0, aciertos = 0, intentos = 0;
+  pool.forEach(function(s){
+    var r = reg[s.id]; if(!r) return;
+    vistas++; aciertos += r.a; intentos += r.a + r.f;
+  });
+  var pct = intentos? Math.round(100*aciertos/intentos) : 0;
+  var tamSel = (t.tam === 0)? 0 : (t.tam || 10);
+  var botones = [10, 25, 50, 0].map(function(k){
+    var etiqueta = k? String(k) : "Todas · "+pool.length;
+    return '<button class="filtro'+(tamSel===k? " activa":"")+'" data-tam="'+k+'">'+etiqueta+'</button>';
+  }).join("");
   shell(
     '<div style="max-width:760px;margin:0 auto">'+
     '<span class="eyebrow">Trivia de señales · reconocimiento de un vistazo</span>'+
     '<h1 style="font-size:26px;margin:6px 0 14px">¿Reconoces la señal? Toca su tarjeta</h1>'+
     '<div class="card" style="display:grid;gap:14px">'+
-      '<div class="fila">'+ico("senal","")+'<span><b>10 señales al azar</b> del anexo oficial ('+(DATA.senales||[]).length+' en total).</span></div>'+
-      '<div class="fila">'+ico("trivia","")+'<span>Elige el nombre correcto entre <b>4 alternativas</b>. Feedback al instante: verde la correcta, rojo si te equivocas.</span></div>'+
+      '<div class="fila">'+ico("senal","")+'<span><b>Elige cuántas señales</b> jugar en la ronda ('+pool.length+' entran al juego; las que traen escrito su propio nombre solo se estudian en la galería).</span></div>'+
+      '<div class="filtros" id="tr-tams" style="margin:0">'+botones+'</div>'+
+      '<div class="fila">'+ico("trivia","")+'<span>La ronda parte por las que <b>aún no respondes</b> y sigue con tus <b>falladas</b>. Verde la correcta, rojo si te equivocas.</span></div>'+
       '<div class="fila">'+ico("llama","")+'<span>Suma <b>puntos y racha</b>. Sin premio por velocidad: piensa lo que necesites.</span></div>'+
     '</div>'+
-    (t.jugadas? '<p class="sub" style="margin-top:10px">Llevas '+t.jugadas+' '+plural(t.jugadas,"ronda","rondas")+'. Tu récord: <b style="color:var(--navy)">'+(t.mejor||0)+'/10</b>.</p>' : "")+
+    '<section class="card" style="margin-top:14px;display:grid;gap:8px" id="tr-control">'+
+      '<div class="fila" style="justify-content:space-between;flex-wrap:wrap"><b style="color:var(--navy)">Tu control del catálogo</b><span class="sub"><b id="tr-vistas" style="color:var(--navy)">'+vistas+'</b> de '+pool.length+' respondidas'+(intentos? ' · '+pct+'% de acierto':'')+'</span></div>'+
+      '<div class="barra"><i style="width:'+Math.round(100*vistas/pool.length)+'%"></i></div>'+
+      (t.jugadas? '<span class="sub">'+t.jugadas+' '+plural(t.jugadas,"ronda jugada","rondas jugadas")+(t.mejorPct != null? ' · mejor ronda: <b style="color:var(--navy)">'+t.mejorPct+'%</b>':'')+'. En la galería, cada señal lleva su punto de estado.</span>'
+                 : '<span class="sub">Aún no respondes ninguna: tu avance quedará registrado señal por señal.</span>')+
+    '</section>'+
     '<div class="fila" style="margin-top:18px;gap:12px;flex-wrap:wrap">'+
       '<button class="btn btn-pri" id="tr-partir" style="font-size:17px;padding:12px 28px">'+ico("flecha")+'Partir la trivia</button>'+
       '<a class="btn btn-ter" href="#/senales">Ver la galería primero</a>'+
     '</div></div>'
   );
+  document.querySelectorAll("#tr-tams .filtro").forEach(function(b){
+    b.addEventListener("click", function(){
+      P.trivia.tam = +b.getAttribute("data-tam"); persistir(); vTrivia();
+    });
+  });
   document.getElementById("tr-partir").addEventListener("click", function(){
-    TR = { qs: armarRondaTrivia(10), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
+    TR = { qs: armarRondaTrivia(tamRonda(pool.length)), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
     pintarTrivia();
   });
 }
@@ -1149,6 +1199,14 @@ function responderTrivia(pos){
     TR.puntos += 10 + (TR.racha>=3? 2:0);
     sonido("ok");
   } else { TR.racha = 0; sonido("mal"); }
+  /* CONTROL por señal (pedido del usuario): cada respuesta queda registrada
+     en el perfil — vistas/aciertos/fallos — y sobrevive aunque salga a mitad
+     de ronda. Alimenta la barra de cobertura, la prioridad de las rondas y
+     los puntos de estado de la galería. */
+  if(!P.senales) P.senales = {};
+  var reg = P.senales[it.s.id] || (P.senales[it.s.id] = { v:0, a:0, f:0 });
+  reg.v++; if(ok) reg.a++; else reg.f++;
+  persistir();
   var espera = ok? 900 : 1700; /* con fallo se da más tiempo para VER la correcta */
   TR.i++; /* se avanza YA: si el usuario navega a mitad del feedback, al volver no se repite ni recuenta la señal */
   var t = setTimeout(function(){ if(!TR || TR.fin) return; pintarTrivia(); }, espera);
@@ -1157,22 +1215,29 @@ function responderTrivia(pos){
 function finalizarTrivia(){
   document.onkeydown = null;
   TR.fin = true;
-  if(!P.trivia) P.trivia = { jugadas:0, mejor:0, mejorRacha:0 };
-  P.trivia.jugadas++;
-  var nuevoRecord = TR.aciertos > (P.trivia.mejor||0);
-  if(nuevoRecord) P.trivia.mejor = TR.aciertos;
+  if(!P.trivia) P.trivia = {};
+  P.trivia.jugadas = (P.trivia.jugadas||0) + 1;
+  /* el récord es PORCENTUAL por ronda (los tamaños ahora varían); se migra el
+     récord viejo x/10 en vTrivia */
+  var pctRonda = Math.round(100*TR.aciertos/TR.qs.length);
+  var nuevoRecord = pctRonda > (P.trivia.mejorPct||0);
+  if(nuevoRecord) P.trivia.mejorPct = pctRonda;
   P.trivia.mejorRacha = Math.max(P.trivia.mejorRacha||0, TR.mejorRacha);
   P.puntos = (P.puntos||0) + TR.puntos;
   marcarRachaDia();
   persistir();
-  sonido(TR.aciertos>=8? "aprobado":"fin");
+  var pool = poolTrivia();
+  var vistas = pool.filter(function(s){ return (P.senales||{})[s.id]; }).length;
+  sonido(pctRonda>=80? "aprobado":"fin");
   shell(
     '<div style="max-width:640px;margin:0 auto">'+
     '<section class="card" style="text-align:center;display:grid;gap:10px;padding:34px">'+
       '<span class="eyebrow">Ronda terminada</span>'+
       '<div style="font-size:52px;font-weight:600;color:var(--navy)">'+TR.aciertos+'<small style="font-size:24px;color:var(--gris-m)">/'+TR.qs.length+'</small></div>'+
-      (nuevoRecord? '<span class="chip" style="background:var(--amarillo-c);color:var(--navy);justify-self:center">¡Nuevo récord!</span>' : '<span class="sub">Tu récord: '+P.trivia.mejor+'/'+TR.qs.length+'</span>')+
+      (nuevoRecord? '<span class="chip" style="background:var(--amarillo-c);color:var(--navy);justify-self:center">¡Nuevo récord: '+pctRonda+'%!</span>' : '<span class="sub">Esta ronda: '+pctRonda+'% · tu mejor ronda: '+(P.trivia.mejorPct||0)+'%</span>')+
       '<p class="sub">+'+TR.puntos+' puntos de entrenamiento · mejor racha de la ronda: '+TR.mejorRacha+'</p>'+
+      '<p class="sub">Control del catálogo: <b style="color:var(--navy)">'+vistas+'</b> de '+pool.length+' señales respondidas</p>'+
+      '<div class="barra" style="max-width:320px;justify-self:center;width:100%"><i style="width:'+Math.round(100*vistas/pool.length)+'%"></i></div>'+
       '<div class="fila" style="justify-content:center;gap:12px;margin-top:8px;flex-wrap:wrap">'+
         '<button class="btn btn-pri" id="tr-otra">'+ico("flecha")+'Jugar otra ronda</button>'+
         '<a class="btn btn-ter" href="#/senales">Volver a señales</a>'+
@@ -1180,7 +1245,7 @@ function finalizarTrivia(){
     '</section></div>'
   );
   document.getElementById("tr-otra").addEventListener("click", function(){
-    TR = { qs: armarRondaTrivia(10), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
+    TR = { qs: armarRondaTrivia(tamRonda(poolTrivia().length)), i:0, aciertos:0, puntos:0, racha:0, mejorRacha:0, resuelto:false, fin:false };
     pintarTrivia();
   });
 }
@@ -1403,7 +1468,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3.3",
+  version: "1.3.4",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,

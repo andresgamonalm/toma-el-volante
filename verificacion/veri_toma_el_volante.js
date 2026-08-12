@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.3.3", marca.version === "1.3.3", marca.version);
+  chk("versión interna 1.3.4", marca.version === "1.3.4", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -294,6 +294,23 @@ function chk(nombre, ok, extra) {
   const btnTrivia = await page.evaluate(() => (document.getElementById("sen-quiz") || {}).textContent || "");
   chk("señales: el botón principal lanza la trivia", btnTrivia.includes("trivia") || btnTrivia.includes("Trivia"), btnTrivia);
   await page.goto("http://127.0.0.1:8940/#/trivia"); await page.waitForSelector("#tr-partir");
+  // tamaño de ronda a ELECCIÓN del usuario (control del catálogo completo)
+  const selTam = await page.evaluate(() => ({
+    n: document.querySelectorAll("#tr-tams .filtro").length,
+    etiquetas: [...document.querySelectorAll("#tr-tams .filtro")].map(b => b.textContent.trim()).join("|"),
+    control: (document.getElementById("tr-control") || {}).textContent || ""
+  }));
+  chk("trivia: selector de tamaño de ronda (10/25/50/Todas · 151) y tarjeta de control",
+    selTam.n === 4 && /Todas · 151/.test(selTam.etiquetas) && /de 151/.test(selTam.control), JSON.stringify(selTam));
+  await page.evaluate(() => { [...document.querySelectorAll("#tr-tams .filtro")].find(b => b.textContent.includes("Todas")).click(); });
+  await page.waitForSelector("#tr-partir"); await page.click("#tr-partir"); await page.waitForSelector(".tk-carta");
+  const nTodas = await page.evaluate(() => window.RUTAB.triviaEstado().qs.length);
+  chk("trivia: ronda 'Todas' trae las 151 jugables", nTodas === 151, String(nTodas));
+  await page.click("#tr-salir"); await page.waitForSelector(".velo [data-m=si]"); await page.click(".velo [data-m=si]");
+  await page.waitForTimeout(250);
+  await page.goto("http://127.0.0.1:8940/#/trivia"); await page.waitForSelector("#tr-tams");
+  await page.evaluate(() => { [...document.querySelectorAll("#tr-tams .filtro")].find(b => b.textContent.trim() === "10").click(); });
+  await page.waitForSelector("#tr-partir");
   await page.click("#tr-partir"); await page.waitForSelector(".tk-carta");
   const cartas = await page.evaluate(() => ({
     n: document.querySelectorAll(".tk-carta").length,
@@ -333,11 +350,28 @@ function chk(nombre, ok, extra) {
   }
   await page.waitForSelector("#tr-otra", { timeout: 8000 });
   const finTrivia = await page.evaluate(() => ({
-    texto: document.body.textContent.includes("10/10") || document.body.textContent.includes("¡Nuevo récord!"),
-    mejor: (window.RUTAB.perfil().trivia || {}).mejor,
-    puntos: window.RUTAB.perfil().puntos || 0
+    texto: document.body.textContent.includes("¡Nuevo récord: 100%!"),
+    mejorPct: (window.RUTAB.perfil().trivia || {}).mejorPct,
+    puntos: window.RUTAB.perfil().puntos || 0,
+    catalogo: /Control del catálogo/.test(document.body.textContent)
   }));
-  chk("trivia: ronda perfecta 10/10 con récord y puntos", finTrivia.texto && finTrivia.mejor === 10 && finTrivia.puntos > puntosAntes, JSON.stringify(finTrivia));
+  chk("trivia: ronda perfecta con récord 100% y resumen del catálogo",
+    finTrivia.texto && finTrivia.mejorPct === 100 && finTrivia.puntos > puntosAntes && finTrivia.catalogo, JSON.stringify(finTrivia));
+  const controlSen = await page.evaluate(() => {
+    const reg = window.RUTAB.perfil().senales || {};
+    const ids = Object.keys(reg);
+    return { n: ids.length, perfectas: ids.every(id => reg[id].a === 1 && reg[id].f === 0) };
+  });
+  chk("trivia: CONTROL por señal registrado en el perfil (10 respondidas, acertadas)",
+    controlSen.n === 10 && controlSen.perfectas, JSON.stringify(controlSen));
+  await page.goto("http://127.0.0.1:8940/#/senales"); await page.waitForSelector(".sen-card");
+  const dots = await page.evaluate(() => ({
+    ok: document.querySelectorAll(".sen-dot.ok").length,
+    mal: document.querySelectorAll(".sen-dot.mal").length,
+    linea: /Tu control en la trivia/.test(document.body.textContent)
+  }));
+  chk("galería: puntos de estado por señal + línea de control (10 dominadas)",
+    dots.ok === 10 && dots.mal === 0 && dots.linea, JSON.stringify(dots));
 
   // 7. plan de estudio: examen en 2 días → 2 simulacros (el caso pedido por el usuario)
   await page.goto("http://127.0.0.1:8940/#/plan"); await page.waitForSelector("#plan-crear");
