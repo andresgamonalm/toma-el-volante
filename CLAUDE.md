@@ -131,6 +131,29 @@ El usuario subió el PDF del libro a su Drive ("Libro_para_la_conduccion_en_Chil
   check, rojo la elegida incorrecta; el resto no se atenúa). TK_CARTAS y las formas ▲◆●■
   se eliminaron.
 
+## v1.3.3 — 132 señales VECTORIALES del Manual (12-ago, no rehacer)
+El usuario subió los 8 capítulos del Manual al repo (ahora en `fuentes/`). Del **cap2**
+(las señales a color son VECTORES; las leyendas de sus grillas también son vectores, no
+texto) se integraron **128 señales** + 4 del cap5 = **132 de 195 en vectorial ~600px**:
+- Método: clustering de trazos (componentes conexas, inflado 4pt) → thumb 128px →
+  **matching por similitud de imagen contra el arte del libro** (los nombres SIEMPRE
+  quedan verbatim del libro) → ~90 aceptadas tras revisión visual hoja a hoja → familias
+  espejo asignadas A MANO leyendo las grillas anotadas (p11/p12/p35/p36: 9 cruces en
+  orden 17,19,21,23,25,27,29,31,32; curvas muy cerradas; pendientes; ensanchamientos;
+  medianas; vía segregada 11a/11b; superficie 13a=bici|auto→-3, 13b=auto|bici→base y -2)
+  → minis azules de autopista (p88) por relleno azul → verificación 1:1 de las 135 y
+  zoom de dudas → 7 DESCARTES donde el manual difiere del libro (manda el LIBRO):
+  cruz-de-san-andres (poste), direccion-obligada (flecha→ vs ↑), fin-ciclovia (no está),
+  solo-televia (cluster sucio), solo-transporte-publico (SÓLO vs SOLO), pendientes DE
+  SUBIDA ×2 (espejadas). Leyendas pegadas: recorte cuadrado + recorte por contenido.
+- **Siguen con arte del libro (63):** las 7 recién dichas + velocidad-minima (40≠60),
+  zona-30/fin-zona-30, balizas, estacionamiento-reservado y prohibido-estacionar-2
+  (placas distintas), preferencia-ciclistas ×4 (raster manual ≈ raster libro), café
+  turísticas, servicios (SOS público/peaje/fotográfico/cámara), zona-espera/ciclo
+  (cap6 Facilidades y minis IO de p90-92 del cap2 = MEJORA FUTURA por el mismo método),
+  desvíos transitorios, y todas las demás sin lámina individual en el manual.
+- SENAL_V=3. Los PDFs del manual viven en `fuentes/` (oficiales, MTT/CONASET).
+
 ## v1.3.2 — nitidez con el Manual de Señalización (12-ago, EN CURSO)
 El usuario subió a Drive la carpeta "Manual-Señalización" (Manual de Señalización de Tránsito
 MTT/CONASET por capítulos). **En el manual las señales a color son VECTORIALES** → nitidez
@@ -153,7 +176,8 @@ verificación lado a lado contra el arte del libro (mismo símbolo y composició
   el arte del libro. Las otras 7 transitorias no tienen lámina individual en cap5.
 
 ## Estado
-v1.3.2 (12-ago-2026): 4 transitorias en vectorial del Manual; resto pendiente de cap2.
+v1.3.3 (12-ago-2026): 132/195 señales en VECTORIAL del Manual oficial (nitidez total).
+v1.3.2 (12-ago-2026): 4 transitorias en vectorial del Manual.
 v1.3.1 (12-ago-2026): anti-caché + alternativas uniformes RB-014.
 v1.3 (11-ago-2026): arte oficial CONASET en señales/trivia/galería, 4 familias, 195 señales.
 v1.2: seguridad de sitio + trivia + fichas claras/avance + plan con .ics (35/35 PASS). v1.1:

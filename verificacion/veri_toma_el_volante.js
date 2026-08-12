@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.3.2", marca.version === "1.3.2", marca.version);
+  chk("versión interna 1.3.3", marca.version === "1.3.3", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -202,7 +202,12 @@ function chk(nombre, ok, extra) {
     const q = window.RUTAB.data.preguntas.find(p => p.pregunta === txt);
     if (!q) return "pregunta no encontrada en el banco";
     const buena = q.opciones[q.correcta];
-    const alt = [...document.querySelectorAll("#q-alts .alt")].find(a => a.textContent.includes(buena));
+    /* comparación EXACTA del texto (includes() clickeaba otra alternativa si la
+       correcta era substring de ella — daba 37/38 intermitente) */
+    const alt = [...document.querySelectorAll("#q-alts .alt")].find(a => {
+      const spans = a.querySelectorAll("span");
+      return spans.length > 1 && spans[spans.length - 1].textContent.trim() === buena.trim();
+    });
     if (!alt) return "alternativa correcta no visible";
     alt.click(); return true;
   });
@@ -224,7 +229,11 @@ function chk(nombre, ok, extra) {
     const q = window.RUTAB.data.preguntas.find(p => p.pregunta === txt);
     if (!q) return { err: "no encontrada: " + txt.slice(0, 40) };
     const buena = q.opciones[q.correcta];
-    const alt = [...document.querySelectorAll("#q-alts .alt")].find(a => a.textContent.includes(buena));
+    /* comparación EXACTA (includes() era flaky por substrings entre alternativas) */
+    const alt = [...document.querySelectorAll("#q-alts .alt")].find(a => {
+      const spans = a.querySelectorAll("span");
+      return spans.length > 1 && spans[spans.length - 1].textContent.trim() === buena.trim();
+    });
     if (!alt) return { err: "alt no visible" };
     alt.click(); return { ok: true, txt };
   });

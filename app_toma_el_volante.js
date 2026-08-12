@@ -1003,7 +1003,7 @@ var senFiltro = "todas";
    distinguen por id (-2, -3…). */
 /* SENAL_V rompe la caché larga de /senales/ (max-age 7d) cuando se renueva el
    arte: subirla junto con la versión del app cada vez que cambie algún PNG. */
-var SENAL_V = "2";
+var SENAL_V = "3";
 function senalImg(s, px){
   px = px || 96;
   return '<img class="senal-img" src="senales/'+s.id+'.png?v='+SENAL_V+'" alt="Señal: '+esc(s.nombre)+'" loading="lazy" style="max-width:'+px+'px;max-height:'+px+'px">';
@@ -1403,7 +1403,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3.2",
+  version: "1.3.3",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,
