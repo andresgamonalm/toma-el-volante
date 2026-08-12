@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.3.4", marca.version === "1.3.4", marca.version);
+  chk("versión interna 1.3.5", marca.version === "1.3.5", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -177,22 +177,30 @@ function chk(nombre, ok, extra) {
   chk("8 capítulos listados", (await page.$$(".cap-card")).length === 8);
   await shot("capitulos");
 
-  // 4a. fichas de estudio: tarjeta CLARA + avance de lectura persistente
+  // 4a. fichas: TODAS a la vista en UNA pantalla (referencia del usuario) + lectura automática
   await page.click(".cap-card"); await page.waitForSelector("#btn-quiz");
-  const ficha = await page.evaluate(() => {
-    const f = document.querySelector(".ficha"); if (!f) return null;
-    return { bg: getComputedStyle(f).backgroundColor, contador: !!document.getElementById("cap-fichas-num") };
-  });
-  chk("fichas: tarjeta blanca de lectura (fin del navy agotador)", ficha && ficha.bg === "rgb(255, 255, 255)", JSON.stringify(ficha));
-  chk("fichas: contador de avance visible", ficha && ficha.contador);
-  await page.click("#ficha-sig"); await page.waitForTimeout(80);
-  await page.click("#ficha-sig"); await page.waitForTimeout(80);
+  const fichasGrid = await page.evaluate(() => ({
+    n: document.querySelectorAll(".fichas-grid .ficha").length,
+    total: window.RUTAB.data.fichas.filter(f => String(f.capitulo) === "1").length,
+    bg: getComputedStyle(document.querySelector(".ficha")).backgroundColor,
+    contador: !!document.getElementById("cap-fichas-num")
+  }));
+  chk("fichas: TODAS en una sola pantalla (grilla, sin deslizable) y tarjeta blanca",
+    fichasGrid.n === fichasGrid.total && fichasGrid.n > 0 && fichasGrid.bg === "rgb(255, 255, 255)" && fichasGrid.contador,
+    JSON.stringify(fichasGrid));
+  /* leer = quedar a la vista: se espera el umbral (1.2 s) y se recorre la grilla */
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(1700);
   const avanceFichas = await page.evaluate(() => ({
     leidas: Object.keys(window.RUTAB.perfil().fichasLeidas).length,
     num: document.getElementById("cap-fichas-num").textContent,
-    puntitosLeidos: document.querySelectorAll("#ficha-pts .leida").length
+    marcadas: document.querySelectorAll(".ficha.leida").length
   }));
-  chk("fichas: la lectura queda registrada (3 leídas, puntitos marcados)", avanceFichas.leidas >= 3 && avanceFichas.puntitosLeidos >= 2, JSON.stringify(avanceFichas));
+  chk("fichas: la lectura se registra sola al pasar por ellas (contador + marcas turquesa)",
+    avanceFichas.leidas >= 3 && avanceFichas.marcadas >= 3 && /\d+\/\d+/.test(avanceFichas.num), JSON.stringify(avanceFichas));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(200);
   await shot("fichas");
 
   // 4b. micro-quiz con respuesta correcta

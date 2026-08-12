@@ -190,7 +190,25 @@ verificación lado a lado contra el arte del libro (mismo símbolo y composició
   migración del viejo `mejor` x/10 (×10) en vTrivia. Arnés: 45/45 PASS (4 asserts nuevos:
   selector+control, ronda Todas=151, registro perfil, dots galería).
 
+## v1.3.5 — fichas en UNA pantalla + AUDITORÍA de contenido (12-ago, no rehacer)
+- **RB-015 (referencia del usuario):** vCapitulo sin deslizable — micro-quiz arriba y
+  TODAS las fichas en `.fichas-grid` (2 col/1 col). Lectura auto-registrada con
+  IntersectionObserver (≥60% visible por 1,2 s → `P.fichasLeidas`, mismas claves cap:idx;
+  clic también marca; fallback sin observer = clic). Punto turquesa por ficha leída
+  (`.ficha-dot` reutiliza `.sen-dot`), contadores en vivo. `fichaIdx` eliminado.
+- **AUDITORÍA DE FIDELIDAD** (pregunta del usuario "¿1000% seguro del libro?"):
+  script contra el PDF oficial (scratchpad): las 262 preguntas tienen su cita EN el
+  libro — 257 literales carácter a carácter y 5 de TABLAS (p.50-51 alcohol, p.74 SRI:
+  el extractor reordena celdas; contenido verificado A OJO contra la página). Se
+  encontraron y CORRIGIERON 6 páginas erradas: c5-22 87→91, c5-48/49/50 126→107,
+  ficha "Señaliza el viraje" 87→92, ficha "El tren siempre pasa primero" 126→107.
+  Las 87 fichas son RESÚMENES de estudio (no citas) con todos sus números respaldados
+  en su página (auditado 87/87 tras el fix). Re-ejecutar la auditoría ante cualquier
+  duda de contenido; ante nueva edición del libro, correr el pipeline completo.
+
 ## Estado
+v1.3.5 (12-ago-2026): fichas en una pantalla (RB-015) + auditoría de contenido y 6
+páginas corregidas. 44/44 PASS.
 v1.3.4 (12-ago-2026): trivia con tamaño de ronda a elección + control por señal.
 v1.3.3 (12-ago-2026): 132/195 señales en VECTORIAL del Manual oficial (nitidez total).
 v1.3.2 (12-ago-2026): 4 transitorias en vectorial del Manual.

@@ -511,14 +511,12 @@ function vEstudiar(){
 }
 
 /* ---------- vista: capítulo (fichas + micro-quiz) ---------- */
-var fichaIdx = 0;
 function vCapitulo(capId){
   var cap = DATA.capitulos.find(function(c){ return String(c.id)===String(capId); });
   if(!cap){ irA("#/estudiar"); return; }
   P.ultCap = cap.id; persistir();
   var fichas = DATA.fichas.filter(function(f){ return String(f.capitulo)===String(cap.id); });
   var qs = preguntasDe(cap.id), dom = dominioCap(cap.id);
-  fichaIdx = clamp(fichaIdx, 0, Math.max(0,fichas.length-1));
   shell(
     '<a class="btn-ter" href="#/estudiar" style="display:inline-flex;align-items:center;gap:6px;padding-left:0">'+ico("flechaIzq")+'Todos los capítulos</a>'+
     '<div class="sec-head" style="margin-top:6px"><div><span class="eyebrow">'+(cap.id==="senales"? "Anexo oficial" : "Capítulo "+cap.id)+' · pág. '+cap.pagina+' del libro</span>'+
@@ -526,46 +524,66 @@ function vCapitulo(capId){
     '<div style="min-width:190px"><div class="cap-meta" style="margin-bottom:5px"><span>Dominio</span><b style="color:var(--navy)">'+dom+'%</b></div><div class="barra b-navy"><i style="width:'+dom+'%"></i></div>'+
     (fichas.length? '<div class="cap-meta" style="margin:9px 0 5px"><span>Fichas leídas</span><b style="color:var(--turq-o)" id="cap-fichas-num">0/'+fichas.length+'</b></div><div class="barra"><i id="cap-fichas-bar" style="width:0%;background:var(--turq)"></i></div>' : "")+
     '</div></div>'+
-    (fichas.length?
-      '<section aria-label="Fichas de repaso">'+
-      '<div id="ficha-cont"></div>'+
-      '<div class="fichas-nav">'+
-        '<button class="btn btn-sec" id="ficha-ant" aria-label="Ficha anterior">'+ico("flechaIzq")+'Anterior</button>'+
-        '<div class="puntitos" id="ficha-pts" role="tablist" aria-label="Ir a ficha"></div>'+
-        '<button class="btn btn-sec" id="ficha-sig" aria-label="Ficha siguiente">Siguiente'+ico("flecha")+'</button>'+
-      '</div></section>' : "")+
     '<section class="card" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">'+
       '<div class="crece"><h2 style="font-size:18px">Micro-quiz de este capítulo</h2>'+
       '<p class="sub">10 preguntas en unos 5 minutos. Primero las que te tocan repasar, después las nuevas.</p></div>'+
       '<button class="btn btn-pri" id="btn-quiz">'+ico("flecha")+'Partir micro-quiz</button>'+
-    '</section>'
+    '</section>'+
+    /* TODAS las fichas a la vista en UNA pantalla (referencia del usuario:
+       el deslizable de a una lo hacía difícil). La lectura se registra sola
+       cuando la tarjeta queda a la vista un momento; cada ficha muestra su
+       estado con el punto turquesa y los contadores avanzan en vivo. */
+    (fichas.length?
+      '<section aria-label="Fichas de repaso" style="margin-top:18px">'+
+      '<h2 style="font-size:18px;margin-bottom:10px">Fichas de repaso <span class="sub" style="font-weight:400">· quedan marcadas como leídas al pasar por ellas</span></h2>'+
+      '<div class="fichas-grid">'+fichas.map(function(f, i){
+        var leida = !!P.fichasLeidas[cap.id+":"+i];
+        return '<article class="ficha'+(leida? " leida":"")+'" data-fi="'+i+'">'+
+          '<span class="sen-dot ok ficha-dot" aria-hidden="true"></span>'+
+          '<span class="eyebrow">Ficha '+(i+1)+' de '+fichas.length+' · '+esc(f.seccion||cap.label)+'</span>'+
+          '<h3>'+esc(f.titulo)+'</h3><p>'+esc(f.texto)+'</p>'+
+          (f.dato? '<span class="dato">'+esc(f.dato)+'</span>':"")+
+          '<span class="pag">Libro CONASET, página '+f.pagina+'</span></article>';
+      }).join("")+'</div></section>' : "")
   );
   if(fichas.length){
-    var pintarFicha = function(){
-      var f = fichas[fichaIdx];
-      var clave = cap.id+":"+fichaIdx;
-      if(!P.fichasLeidas[clave]){ P.fichasLeidas[clave] = Date.now(); persistir(); }
+    var refrescarContador = function(){
       var leidas = fichasLeidasDe(cap.id);
       var num = document.getElementById("cap-fichas-num"), bar = document.getElementById("cap-fichas-bar");
       if(num){ num.textContent = leidas+"/"+fichas.length; }
       if(bar){ bar.style.width = Math.round(100*leidas/fichas.length)+"%"; }
-      document.getElementById("ficha-cont").innerHTML =
-        '<article class="ficha" aria-live="polite"><span class="eyebrow">Ficha '+(fichaIdx+1)+' de '+fichas.length+' · '+esc(f.seccion||cap.label)+'</span>'+
-        '<h3>'+esc(f.titulo)+'</h3><p>'+esc(f.texto)+'</p>'+
-        (f.dato? '<span class="dato">'+esc(f.dato)+'</span>':"")+
-        '<span class="pag">Libro CONASET, página '+f.pagina+'</span></article>';
-      var pts = fichas.map(function(_,i){
-        var cls = (i===fichaIdx? "activa" : (P.fichasLeidas[cap.id+":"+i]? "leida" : ""));
-        return '<button role="tab" aria-label="Ficha '+(i+1)+'" class="'+cls+'" data-f="'+i+'"></button>';
-      }).join("");
-      document.getElementById("ficha-pts").innerHTML = pts;
-      document.querySelectorAll("#ficha-pts [data-f]").forEach(function(b){
-        b.addEventListener("click", function(){ fichaIdx=+b.getAttribute("data-f"); pintarFicha(); });
-      });
     };
-    pintarFicha();
-    document.getElementById("ficha-ant").addEventListener("click", function(){ fichaIdx=(fichaIdx-1+fichas.length)%fichas.length; pintarFicha(); });
-    document.getElementById("ficha-sig").addEventListener("click", function(){ fichaIdx=(fichaIdx+1)%fichas.length; pintarFicha(); });
+    refrescarContador();
+    var marcarLeida = function(i){
+      var clave = cap.id+":"+i;
+      if(P.fichasLeidas[clave]) return;
+      P.fichasLeidas[clave] = Date.now(); persistir();
+      var el = document.querySelector('.ficha[data-fi="'+i+'"]');
+      if(el) el.classList.add("leida");
+      refrescarContador();
+    };
+    /* leída = estuvo a la vista ~1.2 s (si el navegador no trae el observer,
+       basta tocar la tarjeta) */
+    var pendientes = {};
+    if(window.IntersectionObserver){
+      var obs = new IntersectionObserver(function(entradas){
+        entradas.forEach(function(en){
+          var i = +en.target.getAttribute("data-fi");
+          if(en.isIntersecting && en.intersectionRatio >= 0.6){
+            if(pendientes[i] == null){
+              pendientes[i] = setTimeout(function(){ marcarLeida(i); obs.unobserve(en.target); }, 1200);
+              timers.push(pendientes[i]);
+            }
+          } else if(pendientes[i] != null){
+            clearTimeout(pendientes[i]); pendientes[i] = null;
+          }
+        });
+      }, { threshold: [0.6] });
+      document.querySelectorAll(".fichas-grid .ficha").forEach(function(el){ obs.observe(el); });
+    }
+    document.querySelectorAll(".fichas-grid .ficha").forEach(function(el){
+      el.addEventListener("click", function(){ marcarLeida(+el.getAttribute("data-fi")); });
+    });
   }
   document.getElementById("btn-quiz").addEventListener("click", function(){
     var seleccion = seleccionMicroQuiz(qs, 10);
@@ -1468,7 +1486,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3.4",
+  version: "1.3.5",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,
