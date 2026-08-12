@@ -1029,22 +1029,12 @@ function vSenales(){
   document.getElementById("sen-quiz").addEventListener("click", function(){ irA("#/trivia"); });
 }
 
-/* ---------- vista: trivia de señales (tarjetas de color, maqueta del usuario) ----------
-   Referencia estructural: trivias tipo Kahoot — 4 tarjetas de color con forma
-   (▲◆●■, apoyo para daltonismo). Colores de la paleta oficial: error #CF1717,
-   azul #1C73CB, advertencia #E8BA30 (contenido navy por contraste AA) y éxito
-   fuerte #0D7332. Sin premio por velocidad (RB-004): piensa lo que necesites. */
+/* ---------- vista: trivia de señales ----------
+   Una señal grande, 4 alternativas UNIFORMES (RB-014: nada de un color por
+   alternativa — confundía; mismo lenguaje que el quiz) con número 1-4 para
+   el teclado. El color aparece SOLO como feedback: verde la correcta, rojo
+   la elegida incorrecta. Sin premio por velocidad (RB-004). */
 var TR = null;
-/* Tarjetas en la PALETA GAMONAL (corrección del usuario: la referencia Kahoot
-   era estructural, no de color; y rojo/verde en alternativas confunden con
-   incorrecto/correcto). Navy y azul con contenido blanco; turquesa y amarillo
-   con contenido navy (contraste AA). Las formas ▲◆●■ se mantienen. */
-var TK_CARTAS = [
-  { color:"tk-navy", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 21H2z" fill="currentColor"/></svg>' },
-  { color:"tk-azul", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 10-9 10L3 12z" fill="currentColor"/></svg>' },
-  { color:"tk-turq", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>' },
-  { color:"tk-ama", forma:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg>' }
-];
 /* Señales cuyo ARTE OFICIAL trae escrito su propio nombre (o lo delata):
    mostrarlas regalaría la respuesta. El bitmap del libro no se altera jamás
    (RB-013), así que quedan fuera de la trivia; siguen íntegras en la galería.
@@ -1094,7 +1084,7 @@ function vTrivia(){
     '<h1 style="font-size:26px;margin:6px 0 14px">¿Reconoces la señal? Toca su tarjeta</h1>'+
     '<div class="card" style="display:grid;gap:14px">'+
       '<div class="fila">'+ico("senal","")+'<span><b>10 señales al azar</b> del anexo oficial ('+(DATA.senales||[]).length+' en total).</span></div>'+
-      '<div class="fila">'+ico("trivia","")+'<span>Elige el nombre correcto entre <b>4 tarjetas de color</b>, como en las trivias. Feedback al instante.</span></div>'+
+      '<div class="fila">'+ico("trivia","")+'<span>Elige el nombre correcto entre <b>4 alternativas</b>. Feedback al instante: verde la correcta, rojo si te equivocas.</span></div>'+
       '<div class="fila">'+ico("llama","")+'<span>Suma <b>puntos y racha</b>. Sin premio por velocidad: piensa lo que necesites.</span></div>'+
     '</div>'+
     (t.jugadas? '<p class="sub" style="margin-top:10px">Llevas '+t.jugadas+' '+plural(t.jugadas,"ronda","rondas")+'. Tu récord: <b style="color:var(--navy)">'+(t.mejor||0)+'/10</b>.</p>' : "")+
@@ -1112,8 +1102,7 @@ function pintarTrivia(){
   if(TR.i >= TR.qs.length){ finalizarTrivia(); return; }
   var it = TR.qs[TR.i];
   var cartas = it.opciones.map(function(op, i){
-    var k = TK_CARTAS[i];
-    return '<button class="tk-carta '+k.color+'" data-op="'+i+'"><span class="tk-forma">'+k.forma+'</span><span class="tk-nombre">'+esc(op)+'</span></button>';
+    return '<button class="tk-carta" data-op="'+i+'"><span class="tk-num">'+(i+1)+'</span><span class="tk-nombre">'+esc(op)+'</span></button>';
   }).join("");
   shell(
     '<div class="quiz-top">'+
@@ -1144,11 +1133,13 @@ function responderTrivia(pos){
   TR.resuelto = true;
   var it = TR.qs[TR.i];
   var ok = pos === it.correcta;
+  /* Feedback CLARO y legible: la correcta se marca en verde con check, la
+     elegida incorrecta en rojo; las demás quedan tal cual (nada de atenuar
+     hasta lo ilegible — corrección del usuario). */
   document.querySelectorAll("#tk-cartas .tk-carta").forEach(function(c, i){
     c.disabled = true;
     if(i === it.correcta){ c.classList.add("ok"); c.insertAdjacentHTML("beforeend", '<span class="tk-res">'+ico("check")+'</span>'); }
     else if(i === pos) c.classList.add("mal");
-    else c.classList.add("apagada");
   });
   if(ok){
     TR.aciertos++; TR.racha++; TR.mejorRacha = Math.max(TR.mejorRacha, TR.racha);
@@ -1409,7 +1400,7 @@ arrancar();
 
 /* Interfaz de verificación/depuración (usada por las pruebas E2E) */
 window.RUTAB = {
-  version: "1.3",
+  version: "1.3.1",
   data: DATA,
   perfil: function(){ return P; },
   seleccionSimulacro: seleccionSimulacro,

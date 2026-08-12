@@ -118,7 +118,21 @@ El usuario subió el PDF del libro a su Drive ("Libro_para_la_conduccion_en_Chil
   Los distractores se arman por NOMBRE distinto y sin repetir (las variantes comparten nombre).
 - Pipeline reproducible en el scratchpad de la sesión (`catalogo_final.json` + scripts PyMuPDF).
 
+## v1.3.1 — caché y alternativas uniformes (12-ago, no rehacer)
+- **BUG REAL DE PRODUCCIÓN:** tras el deploy de v1.3 el navegador del usuario siguió sirviendo
+  el app JS viejo desde caché (vio las señales esquemáticas eliminadas → "sigues inventando
+  señales"). Doble blindaje: el middleware fija `Cache-Control: no-cache` en HTML/JS y
+  `max-age=604800` en `/senales/` (no re-envuelve `/api/` — llevan Set-Cookie), y los script
+  tags llevan `?v=1.3.1` (subir el número con cada versión). El arnés asevera las cabeceras.
+  Regla operativa: NUNCA anunciar "ya está en producción" — decir "en 1-2 min, con Ctrl+Shift+R".
+- **RB-014 (orden del usuario: "no pintes cada cuadro de un color distinto, confunde; usa
+  criterio, es un tema serio"):** alternativas de la trivia UNIFORMES con el lenguaje del quiz
+  (tarjeta blanca, borde #cfd6e4, chip 1-4); color SOLO como feedback (verde correcta con
+  check, rojo la elegida incorrecta; el resto no se atenúa). TK_CARTAS y las formas ▲◆●■
+  se eliminaron.
+
 ## Estado
+v1.3.1 (12-ago-2026): anti-caché + alternativas uniformes RB-014.
 v1.3 (11-ago-2026): arte oficial CONASET en señales/trivia/galería, 4 familias, 195 señales.
 v1.2: seguridad de sitio + trivia + fichas claras/avance + plan con .ics (35/35 PASS). v1.1:
 rebrand + RB-006. Pendientes: elección del usuario entre las 3 propuestas de rediseño

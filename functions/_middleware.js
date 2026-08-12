@@ -16,13 +16,26 @@ const LIBRES = new Set([
   "/favicon.ico"
 ]);
 
+/* Cabeceras de caché explícitas: el HTML y los JS SIEMPRE se revalidan (bug
+   real: tras un deploy el navegador seguía sirviendo app JS viejo desde su
+   caché heurística y el usuario veía la versión anterior); el arte de señales
+   es estable y puede cachearse una semana. Se fijan aquí (y no en _headers)
+   porque toda respuesta pasa por esta función. */
+function conCache(res, pathname) {
+  if (pathname.startsWith("/api/")) return res; /* /api lleva Set-Cookie: no re-envolver */
+  const h = new Headers(res.headers);
+  if (pathname.startsWith("/senales/")) h.set("Cache-Control", "public, max-age=604800");
+  else if (pathname === "/" || pathname.endsWith(".html") || pathname.endsWith(".js")) h.set("Cache-Control", "no-cache");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+}
+
 export async function onRequest(ctx) {
   const { request, next, env } = ctx;
   try {
     const url = new URL(request.url);
-    if (LIBRES.has(url.pathname)) return next();
+    if (LIBRES.has(url.pathname)) return conCache(await next(), url.pathname);
     const token = leerCookie(request.headers.get("Cookie"), "tev_acceso");
-    if (token && await tokenValido(token, env)) return next();
+    if (token && await tokenValido(token, env)) return conCache(await next(), url.pathname);
     const acepta = request.headers.get("Accept") || "";
     if (request.method === "GET" && acepta.includes("text/html")) {
       return Response.redirect(new URL("/acceso", url).toString(), 302);

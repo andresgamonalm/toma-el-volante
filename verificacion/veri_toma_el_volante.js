@@ -50,19 +50,21 @@ async function cargarAuth() {
   SAL = await import(path.join(AUTHTMP, "salir.mjs"));
 }
 
-function servirEstatico(p, res) {
+/* El next() del middleware devuelve una Response REAL del estático (igual que
+   en Cloudflare Pages): así las cabeceras que el middleware agrega (caché) se
+   prueban tal cual llegan al navegador.
+   Emula además las "pretty URLs" de Pages: /foo.html redirige 301 a /foo y
+   /foo sirve foo.html. Sin esa emulación el loop de redirecciones de la
+   puerta (bug real de producción) no se detecta en local. */
+function respuestaEstatica(p) {
   if (p === "/") p = "/index.html";
-  /* Emula las "pretty URLs" de Cloudflare Pages: /foo.html redirige 301 a /foo
-     y /foo sirve foo.html. Sin esta emulación el loop de redirecciones de la
-     puerta (bug real de producción) no se detecta en local. */
   if (p.endsWith(".html") && p !== "/index.html") {
-    res.statusCode = 301; res.setHeader("Location", p.slice(0, -5)); return res.end();
+    return new Response(null, { status: 301, headers: { Location: p.slice(0, -5) } });
   }
   let f = path.join(APP, p);
   if (!fs.existsSync(f) && fs.existsSync(f + ".html")) f = f + ".html";
-  if (!f.startsWith(APP) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.statusCode = 404; return res.end("no"); }
-  res.setHeader("Content-Type", MIME[path.extname(f)] || "application/octet-stream");
-  res.end(fs.readFileSync(f));
+  if (!f.startsWith(APP) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return new Response("no", { status: 404 });
+  return new Response(fs.readFileSync(f), { headers: { "Content-Type": MIME[path.extname(f)] || "application/octet-stream" } });
 }
 
 async function volcarRespuesta(r, res) {
@@ -76,7 +78,6 @@ async function volcarRespuesta(r, res) {
   res.end(cuerpo);
 }
 
-const SIGUE = Symbol("next");
 const server = http.createServer((req, res) => {
   const trozos = [];
   req.on("data", c => trozos.push(c));
@@ -90,8 +91,7 @@ const server = http.createServer((req, res) => {
       });
       if (p === "/api/acceso" && req.method === "POST") return await volcarRespuesta(await ACC.onRequestPost({ request, env: {} }), res);
       if (p === "/api/salir") return await volcarRespuesta(await SAL.onRequestGet({ request, env: {} }), res);
-      const r = await MW.onRequest({ request, env: {}, next: async () => SIGUE });
-      if (r === SIGUE) return servirEstatico(p, res);
+      const r = await MW.onRequest({ request, env: {}, next: async () => respuestaEstatica(p) });
       return await volcarRespuesta(r, res);
     } catch (e) {
       console.log("ERROR-SERVER:", e.message);
@@ -168,7 +168,7 @@ function chk(nombre, ok, extra) {
   }));
   chk("wordmark del topbar = Toma el Volante", marca.palabra === "Toma el Volante", marca.palabra);
   chk("símbolo inline es el volante (círculos)", marca.ruedas >= 2, String(marca.ruedas));
-  chk("versión interna 1.3", marca.version === "1.3", marca.version);
+  chk("versión interna 1.3.1", marca.version === "1.3.1", marca.version);
   chk("banco de 262 preguntas", marca.n === 262, String(marca.n));
   await shot("home");
 
@@ -222,16 +222,23 @@ function chk(nombre, ok, extra) {
   const responde = () => page.evaluate(() => {
     const txt = document.querySelector(".pregunta-txt").textContent;
     const q = window.RUTAB.data.preguntas.find(p => p.pregunta === txt);
-    if (!q) return "no encontrada: " + txt.slice(0, 40);
+    if (!q) return { err: "no encontrada: " + txt.slice(0, 40) };
     const buena = q.opciones[q.correcta];
     const alt = [...document.querySelectorAll("#q-alts .alt")].find(a => a.textContent.includes(buena));
-    if (!alt) return "alt no visible";
-    alt.click(); return true;
+    if (!alt) return { err: "alt no visible" };
+    alt.click(); return { ok: true, txt };
   });
+  /* Avance DETERMINISTA: tras el clic se espera a que la pregunta CAMBIE (una
+     espera fija de ms es flaky con la máquina cargada: un clic caía en el DOM
+     viejo y el simulacro terminaba 37/38). En la última no hay cambio. */
+  const avanza = (prev) => page.waitForFunction(p => {
+    const el = document.querySelector(".pregunta-txt");
+    return !el || el.textContent !== p;
+  }, prev, { timeout: 6000 }).catch(() => {});
   let fallosSim = [];
-  for (let i = 0; i < 12; i++) { const r = await responde(); if (r !== true) fallosSim.push(r); await page.waitForTimeout(25); }
+  for (let i = 0; i < 12; i++) { const r = await responde(); if (!r.ok) fallosSim.push(r.err); else if (i < 34) await avanza(r.txt); }
   await shot("simulacro"); // en curso: 12 respondidas, mapa avanzado
-  for (let i = 12; i < 35; i++) { const r = await responde(); if (r !== true) fallosSim.push(r); await page.waitForTimeout(25); }
+  for (let i = 12; i < 35; i++) { const r = await responde(); if (!r.ok) fallosSim.push(r.err); else if (i < 34) await avanza(r.txt); }
   chk("simulacro: 35 respuestas correctas aplicadas", fallosSim.length === 0, fallosSim.join("|"));
   await page.evaluate(() => document.getElementById("sim-entregar").click());
   await page.waitForSelector(".velo [data-m=si]");
@@ -265,6 +272,15 @@ function chk(nombre, ok, extra) {
     return muestra.map(im => im.naturalWidth > 50 && im.src.includes("/senales/")).every(Boolean);
   });
   chk("señales: el arte oficial (PNG del PDF) carga en la galería", artOk === true, String(artOk));
+  /* anti-caché (bug real: tras un deploy el navegador servía JS viejo y el
+     usuario veía señales de la versión anterior): HTML/JS siempre revalidan,
+     el arte estable cachea una semana */
+  const cache = await page.evaluate(async () => ({
+    js: (await fetch("/app_toma_el_volante.js?v=sonda")).headers.get("cache-control"),
+    png: (await fetch("/senales/pare.png")).headers.get("cache-control")
+  }));
+  chk("caché: JS con no-cache y señales con max-age (la versión nueva SIEMPRE llega)",
+    cache.js === "no-cache" && /max-age=604800/.test(cache.png || ""), JSON.stringify(cache));
   await shot("senales");
   const btnTrivia = await page.evaluate(() => (document.getElementById("sen-quiz") || {}).textContent || "");
   chk("señales: el botón principal lanza la trivia", btnTrivia.includes("trivia") || btnTrivia.includes("Trivia"), btnTrivia);
@@ -272,9 +288,12 @@ function chk(nombre, ok, extra) {
   await page.click("#tr-partir"); await page.waitForSelector(".tk-carta");
   const cartas = await page.evaluate(() => ({
     n: document.querySelectorAll(".tk-carta").length,
-    colores: [...document.querySelectorAll(".tk-carta")].map(c => getComputedStyle(c).backgroundColor)
+    colores: [...document.querySelectorAll(".tk-carta")].map(c => getComputedStyle(c).backgroundColor),
+    numeros: [...document.querySelectorAll(".tk-carta .tk-num")].map(n => n.textContent).join("")
   }));
-  chk("trivia: 4 tarjetas de color distintas", cartas.n === 4 && new Set(cartas.colores).size === 4, JSON.stringify(cartas));
+  chk("trivia: 4 alternativas UNIFORMES blancas con número (RB-014: nada de un color por alternativa)",
+    cartas.n === 4 && new Set(cartas.colores).size === 1 && cartas.colores[0] === "rgb(255, 255, 255)" && cartas.numeros === "1234",
+    JSON.stringify(cartas));
   const rondaSana = await page.evaluate(async () => {
     const tr = window.RUTAB.triviaEstado();
     const excl = ["pare","velocidad-minima","desvio","zona-espera-especial-ciclos","peligro","peligro-2"];
